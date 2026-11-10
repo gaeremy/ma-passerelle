@@ -152,5 +152,4 @@ après un `unpair`, ce jumelage WinPlay serait repris de nouveau.
 
 - Seul l'écran principal est partagé ; on ne peut pas encore choisir un autre écran ou une fenêtre.
 - Un seul téléviseur par lancement.
-- Le jumelage par `pair` n'a pas encore été vérifié de bout en bout avec ce programme.
 - La coupure par le téléviseur (`disconnected`) est reconnue à partir des messages de la bibliothèque WinPlay ; à revoir à chaque mise à jour de celle-ci.
