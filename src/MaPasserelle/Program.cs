@@ -138,63 +138,71 @@ async Task<int> MirrorAsync()
     Console.CancelKeyPress += (_, e) => { e.Cancel = true; stop.TrySetResult("signal"); };
 
     Emit("connecting", ("id", device.DeviceId), ("name", device.Name), ("address", address.ToString()));
-    await using var session = await MirrorSession.ConnectAsync(address, device.AirPlayPort ?? 7000, credentials,
+    var session = await MirrorSession.ConnectAsync(address, device.AirPlayPort ?? 7000, credentials,
         stage => Emit("stage", ("message", stage)), withAudio: withAudio);
-
-    await using var source = new ScreenMirrorSource(fps, mbps);
-    source.Diagnostic += d => Emit("stage", ("message", "capture: " + d));
-    bool audio = session.HasAudio;
-    await session.StartStreamingAsync(source, audio ? new LoopbackAudioSource() : null);
     var started = DateTime.UtcNow;
-    Emit("streaming", ("id", device.DeviceId), ("name", device.Name), ("fps", fps), ("mbps", mbps), ("audio", audio));
-
-    void Status() => Emit("status",
-        ("frames", session.FramesSent),
-        ("seconds", (long)(DateTime.UtcNow - started).TotalSeconds),
-        ("audio", audio));
-
-    if (!HasFlag("--no-stdin"))
-    {
-        _ = Task.Run(async () =>
-        {
-            while (true)
-            {
-                string? line = await Console.In.ReadLineAsync();
-                if (line is null) { stop.TrySetResult("stdin_closed"); return; }
-                switch (line.Trim().ToLowerInvariant())
-                {
-                    case "stop": stop.TrySetResult("command"); return;
-                    case "status": Status(); break;
-                    case "": break;
-                    default: Emit("error", ("code", "unknown_command"), ("message", $"commande inconnue « {line.Trim()} »")); break;
-                }
-            }
-        });
-    }
-
-    // Surveillance : état toutes les 10 s, durée limite, et flux figé (plus aucune image
-    // envoyée pendant 20 s = le téléviseur a très probablement coupé la session).
-    long lastFrames = 0;
-    var lastProgress = DateTime.UtcNow;
     int exit = ExitOk;
-    string reason;
-    while (true)
+    string reason = "error";
+    try
     {
-        var tick = Task.Delay(TimeSpan.FromSeconds(10));
-        if (await Task.WhenAny(stop.Task, tick) == stop.Task) { reason = await stop.Task; break; }
-        Status();
-        long frames = session.FramesSent;
-        if (frames != lastFrames) { lastFrames = frames; lastProgress = DateTime.UtcNow; }
-        else if (DateTime.UtcNow - lastProgress > TimeSpan.FromSeconds(20))
-        {
-            Emit("error", ("code", "stream_stalled"), ("message", "plus aucune image envoyée depuis 20 secondes"));
-            reason = "stalled"; exit = ExitConnection; break;
-        }
-        if (minutes is { } limit && DateTime.UtcNow - started > TimeSpan.FromMinutes(limit)) { reason = "time_limit"; break; }
-    }
+        await using var source = new ScreenMirrorSource(fps, mbps);
+        source.Diagnostic += d => Emit("stage", ("message", "capture: " + d));
+        bool audio = session.HasAudio;
+        await session.StartStreamingAsync(source, audio ? new LoopbackAudioSource() : null);
+        started = DateTime.UtcNow;
+        Emit("streaming", ("id", device.DeviceId), ("name", device.Name), ("fps", fps), ("mbps", mbps), ("audio", audio));
 
-    await session.StopAsync();
-    Emit("stopped", ("reason", reason), ("frames", session.FramesSent), ("seconds", (long)(DateTime.UtcNow - started).TotalSeconds));
+        void Status() => Emit("status",
+            ("frames", session.FramesSent),
+            ("seconds", (long)(DateTime.UtcNow - started).TotalSeconds),
+            ("audio", audio));
+
+        if (!HasFlag("--no-stdin"))
+        {
+            _ = Task.Run(async () =>
+            {
+                while (true)
+                {
+                    string? line = await Console.In.ReadLineAsync();
+                    if (line is null) { stop.TrySetResult("stdin_closed"); return; }
+                    switch (line.Trim().ToLowerInvariant())
+                    {
+                        case "stop": stop.TrySetResult("command"); return;
+                        case "status": Status(); break;
+                        case "": break;
+                        default: Emit("error", ("code", "unknown_command"), ("message", $"commande inconnue « {line.Trim()} »")); break;
+                    }
+                }
+            });
+        }
+
+        // Surveillance : état toutes les 10 s, durée limite, et flux figé (plus aucune image
+        // envoyée pendant 20 s = le téléviseur a très probablement coupé la session).
+        long lastFrames = 0;
+        var lastProgress = DateTime.UtcNow;
+        while (true)
+        {
+            var tick = Task.Delay(TimeSpan.FromSeconds(10));
+            if (await Task.WhenAny(stop.Task, tick) == stop.Task) { reason = await stop.Task; break; }
+            Status();
+            long frames = session.FramesSent;
+            if (frames != lastFrames) { lastFrames = frames; lastProgress = DateTime.UtcNow; }
+            else if (DateTime.UtcNow - lastProgress > TimeSpan.FromSeconds(20))
+            {
+                Emit("error", ("code", "stream_stalled"), ("message", "plus aucune image envoyée depuis 20 secondes"));
+                reason = "stalled"; exit = ExitConnection; break;
+            }
+            if (minutes is { } limit && DateTime.UtcNow - started > TimeSpan.FromMinutes(limit)) { reason = "time_limit"; break; }
+        }
+
+    }
+    finally
+    {
+        // La fermeture envoie l'ordre d'arrêt au téléviseur ; « stopped » est toujours le dernier événement.
+        long frames = session.FramesSent;
+        await session.DisposeAsync();
+        Emit("stopped", ("reason", reason), ("frames", frames), ("seconds", (long)(DateTime.UtcNow - started).TotalSeconds));
+    }
     return exit;
 }
 

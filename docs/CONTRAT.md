@@ -76,7 +76,7 @@ Partage l'écran principal jusqu'à ce qu'on l'arrête.
 | `--fps N` | 30 | images par seconde, de 5 à 60 |
 | `--mbps N` | 0 | débit vidéo en Mbit/s ; 0 = choisi automatiquement |
 | `--no-audio` | | n'envoie pas le son du PC |
-| `--minutes M` | | arrêt automatique après `M` minutes |
+| `--minutes M` | | arrêt automatique après `M` minutes, vérifié toutes les 10 secondes |
 | `--no-stdin` | | n'écoute pas l'entrée standard (arrêt par `--minutes` ou Ctrl+C) |
 
 Événements, dans l'ordre :
@@ -111,6 +111,7 @@ Le champ `reason` de `stopped` vaut :
 | `signal` | Ctrl+C |
 | `time_limit` | la durée de `--minutes` est écoulée |
 | `stalled` | plus aucune image envoyée depuis 20 secondes ; précédé d'un `error` `stream_stalled` |
+| `error` | le partage a échoué en cours de route ; suivi d'un `error` qui dit pourquoi |
 
 Si le programme appelant se ferme ou plante, l'entrée standard se ferme et le partage s'arrête
 tout seul. **Attention :** lancé avec une entrée standard vide ou redirigée depuis `NUL`,
@@ -150,5 +151,6 @@ après un `unpair`, ce jumelage WinPlay serait repris de nouveau.
 
 - Seul l'écran principal est partagé ; on ne peut pas encore choisir un autre écran ou une fenêtre.
 - Un seul téléviseur par lancement.
+- Le jumelage par `pair` n'a pas encore été vérifié de bout en bout avec ce programme.
 - La détection d'un partage interrompu (`stalled`) repose sur l'absence d'images pendant
   20 secondes ; elle n'a pas encore été vérifiée en coupant réellement le téléviseur.
