@@ -139,7 +139,16 @@ async Task<int> MirrorAsync()
 
     Emit("connecting", ("id", device.DeviceId), ("name", device.Name), ("address", address.ToString()));
     var session = await MirrorSession.ConnectAsync(address, device.AirPlayPort ?? 7000, credentials,
-        stage => Emit("stage", ("message", stage)), withAudio: withAudio);
+        stage =>
+        {
+            Emit("stage", ("message", stage));
+            // Le téléviseur a coupé (veille, extinction, autre source) : la bibliothèque le signale
+            // seulement par ces messages, et continue de compter des images. On s'arrête donc ici.
+            if (stage.StartsWith("data channel closed", StringComparison.Ordinal)
+                || stage.StartsWith("feedback ended", StringComparison.Ordinal)
+                || stage.StartsWith("event channel closed", StringComparison.Ordinal))
+                stop.TrySetResult("disconnected");
+        }, withAudio: withAudio);
     var started = DateTime.UtcNow;
     int exit = ExitOk;
     string reason = "error";
@@ -183,7 +192,16 @@ async Task<int> MirrorAsync()
         while (true)
         {
             var tick = Task.Delay(TimeSpan.FromSeconds(10));
-            if (await Task.WhenAny(stop.Task, tick) == stop.Task) { reason = await stop.Task; break; }
+            if (await Task.WhenAny(stop.Task, tick) == stop.Task)
+            {
+                reason = await stop.Task;
+                if (reason == "disconnected")
+                {
+                    Emit("error", ("code", "disconnected"), ("message", "le téléviseur a mis fin au partage"));
+                    exit = ExitConnection;
+                }
+                break;
+            }
             Status();
             long frames = session.FramesSent;
             if (frames != lastFrames) { lastFrames = frames; lastProgress = DateTime.UtcNow; }

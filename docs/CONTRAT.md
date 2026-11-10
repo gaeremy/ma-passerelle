@@ -110,6 +110,7 @@ Le champ `reason` de `stopped` vaut :
 | `stdin_closed` | l'entrée standard a été fermée (le programme appelant s'est arrêté) |
 | `signal` | Ctrl+C |
 | `time_limit` | la durée de `--minutes` est écoulée |
+| `disconnected` | le téléviseur a coupé (veille, extinction, autre source) ; précédé d'un `error` `disconnected` |
 | `stalled` | plus aucune image envoyée depuis 20 secondes ; précédé d'un `error` `stream_stalled` |
 | `error` | le partage a échoué en cours de route ; suivi d'un `error` qui dit pourquoi |
 
@@ -133,7 +134,7 @@ le partage s'arrête donc immédiatement ; utiliser `--no-stdin` dans ce cas.
 | 3 | `not_found` | appareil introuvable sur le réseau |
 | 4 | `not_paired` | aucun jumelage pour cet appareil |
 | 5 | `pairing_failed`, `pin_missing` | code refusé, ou non fourni à temps |
-| 6 | `connection_failed`, `stream_stalled` | connexion impossible, ou partage interrompu |
+| 6 | `connection_failed`, `disconnected`, `stream_stalled` | connexion impossible, ou partage interrompu |
 
 `unknown_command` signale une ligne non reconnue sur l'entrée standard ; le partage continue.
 
@@ -152,5 +153,4 @@ après un `unpair`, ce jumelage WinPlay serait repris de nouveau.
 - Seul l'écran principal est partagé ; on ne peut pas encore choisir un autre écran ou une fenêtre.
 - Un seul téléviseur par lancement.
 - Le jumelage par `pair` n'a pas encore été vérifié de bout en bout avec ce programme.
-- La détection d'un partage interrompu (`stalled`) repose sur l'absence d'images pendant
-  20 secondes ; elle n'a pas encore été vérifiée en coupant réellement le téléviseur.
+- La coupure par le téléviseur (`disconnected`) est reconnue à partir des messages de la bibliothèque WinPlay ; à revoir à chaque mise à jour de celle-ci.
