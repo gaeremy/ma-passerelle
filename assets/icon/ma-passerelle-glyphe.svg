@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 300">
+  <title>Ma Passerelle</title>
+  <path d="M205.4 53.0 A40 40 0 0 1 231.0 78.6" fill="none" stroke="#F2635A" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M210.9 35.8 A58 58 0 0 1 248.2 73.1" fill="none" stroke="#1C1B20" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M144.0 148 V166" fill="none" stroke="#1C1B20" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="76" y="72" width="136" height="76" rx="19" fill="none" stroke="#1C1B20" stroke-width="13"/>
+  <path d="M133.0 95.0 V125.0 L159.0 110.0 Z" fill="#F2635A" stroke="#F2635A" stroke-width="11" stroke-linejoin="round"/>
+  <path d="M86 192 V233 M128 181 V219 M172 181 V219 M214 192 V233" fill="none" stroke="#1C1B20" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M52 210 Q150 148 248 210" fill="none" stroke="#1C1B20" stroke-width="13" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M38 248 H60 Q150 186 240 248 H262" fill="none" stroke="#F2635A" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

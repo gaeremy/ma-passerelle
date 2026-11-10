@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
+    <Platforms>x64;ARM64</Platforms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>MaPasserelle</RootNamespace>
+    <AssemblyName>mapasserelle</AssemblyName>
+    <ApplicationIcon>..\..\assets\icon\ma-passerelle.ico</ApplicationIcon>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\vendor\WinPlay\src\WinPlay.Core\WinPlay.Core.csproj" />
+    <ProjectReference Include="..\..\vendor\WinPlay\src\WinPlay.Capture\WinPlay.Capture.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute">
+      <_Parameter1>windows</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+</Project>
