@@ -47,6 +47,26 @@ l'utilisateur renomme son téléviseur.
 | `paired` | un jumelage est déjà enregistré pour cet appareil |
 | `address` | adresse IPv4, ou `null` si elle n'est pas encore connue |
 
+### `screens`
+
+Liste les écrans branchés. L'écran principal porte toujours le numéro 1.
+
+```json
+{"event":"screen","index":1,"name":"\\\\.\\DISPLAY1","width":1920,"height":1080,"x":0,"y":0,"primary":true}
+{"event":"done","count":1}
+```
+
+### `windows`
+
+Liste les fenêtres partageables, comme dans Alt+Tab.
+
+```json
+{"event":"window","id":262520,"title":"Mon Estrade","process":"MonEstrade","width":1129,"height":635,"minimized":false}
+{"event":"done","count":1}
+```
+
+`id` n'est valable que tant que la fenêtre existe : relancer `windows` avant chaque partage.
+
 ### `pair --to <nom|id> [--pin NNNN]`
 
 Jumelle le PC avec l'appareil. À faire une seule fois par appareil et par compte Windows.
@@ -69,13 +89,31 @@ son identifiant.
 
 ### `mirror --to <nom|id> [options]`
 
-Partage l'écran principal jusqu'à ce qu'on l'arrête.
+Partage un écran ou une fenêtre jusqu'à ce qu'on l'arrête. Sans précision, c'est l'écran principal.
+
+Quoi partager (une seule de ces options) :
+
+| Option | Sens |
+|---|---|
+| `--screen N` | l'écran numéro `N` de la liste `screens` |
+| `--window ID` | la fenêtre d'identifiant `ID` de la liste `windows` |
+| `--window-title TEXTE` | la première fenêtre dont le titre contient `TEXTE` |
+
+Une fenêtre est envoyée dans une image 16:9, centrée, avec des bandes noires autour. On peut
+la redimensionner ou la déplacer pendant le partage. Si on la ferme, le partage s'arrête
+(`reason` = `source_closed`). Réduite dans la barre des tâches, elle reste figée sur sa
+dernière image.
+
+Réglages :
 
 | Option | Défaut | Sens |
 |---|---|---|
-| `--fps N` | 30 | images par seconde, de 5 à 60 |
+| `--resolution R` | `auto` | taille maximale de l'image : `720`, `1080`, `2160` (4K) ou `auto` (= 1080) |
+| `--fps N` | 30 | images par seconde : 30 ou 60 (toute valeur de 5 à 60 est acceptée) |
 | `--mbps N` | 0 | débit vidéo en Mbit/s ; 0 = choisi automatiquement |
 | `--no-audio` | | n'envoie pas le son du PC |
+| `--no-cursor` | | n'affiche pas le pointeur de la souris |
+| `--backend B` | `graphics` | méthode de capture ; `duplication` est l'ancienne méthode, pour un écran seulement et sans pointeur, à essayer si l'image reste noire |
 | `--minutes M` | | arrêt automatique après `M` minutes, vérifié toutes les 10 secondes |
 | `--no-stdin` | | n'écoute pas l'entrée standard (arrêt par `--minutes` ou Ctrl+C) |
 
@@ -85,7 +123,8 @@ Partage l'écran principal jusqu'à ce qu'on l'arrête.
 {"event":"searching","target":"Séjour"}
 {"event":"connecting","id":"E69BEC25FFA7","name":"Séjour","address":"10.0.3.104"}
 {"event":"stage","message":"..."}
-{"event":"streaming","id":"E69BEC25FFA7","name":"Séjour","fps":30,"mbps":0,"audio":true}
+{"event":"streaming","id":"E69BEC25FFA7","name":"Séjour","source":"screen","source_name":"\\\\.\\DISPLAY1","audio":true}
+{"event":"video","width":1920,"height":1080,"fps":30,"mbps":6,"encoder":"H.264 hardware (NVIDIA H.264 Encoder MFT)"}
 {"event":"status","frames":298,"seconds":10,"audio":true}
 {"event":"stopped","reason":"command","frames":912,"seconds":31}
 ```
@@ -93,6 +132,8 @@ Partage l'écran principal jusqu'à ce qu'on l'arrête.
 - `stage` : étapes techniques de la connexion et de la capture. Le texte est destiné au
   journal, pas à l'affichage ; il peut changer d'une version à l'autre.
 - `streaming` : l'image part vers le téléviseur. C'est le moment d'afficher « partage en cours ».
+- `video` : la taille réellement envoyée, le débit et l'encodeur utilisé. Un écran n'est jamais agrandi :
+  un écran 1080p avec `--resolution 2160` reste envoyé en 1080p.
 - `status` : émis toutes les 10 secondes, et à la demande.
 
 Pendant le partage, l'entrée standard accepte :
@@ -111,6 +152,8 @@ Le champ `reason` de `stopped` vaut :
 | `signal` | Ctrl+C |
 | `time_limit` | la durée de `--minutes` est écoulée |
 | `disconnected` | le téléviseur a coupé (veille, extinction, autre source) ; précédé d'un `error` `disconnected` |
+| `source_closed` | la fenêtre partagée a été fermée, ou l'écran débranché |
+| `capture_failed` | la capture d'écran a échoué ; précédé d'un `error` `capture_failed` |
 | `stalled` | plus aucune image envoyée depuis 20 secondes ; précédé d'un `error` `stream_stalled` |
 | `error` | le partage a échoué en cours de route ; suivi d'un `error` qui dit pourquoi |
 
@@ -129,9 +172,9 @@ le partage s'arrête donc immédiatement ; utiliser `--no-stdin` dans ce cas.
 | Code de sortie | `code` | Sens |
 |---|---|---|
 | 0 | | réussite |
-| 1 | `not_supported` | l'appareil n'accepte pas le partage d'écran |
+| 1 | `not_supported`, `capture_failed` | l'appareil n'accepte pas le partage d'écran, ou la capture a échoué |
 | 2 | `usage` | commande ou option incorrecte |
-| 3 | `not_found` | appareil introuvable sur le réseau |
+| 3 | `not_found`, `source_not_found` | appareil introuvable sur le réseau ; écran ou fenêtre introuvable |
 | 4 | `not_paired` | aucun jumelage pour cet appareil |
 | 5 | `pairing_failed`, `pin_missing` | code refusé, ou non fourni à temps |
 | 6 | `connection_failed`, `disconnected`, `stream_stalled` | connexion impossible, ou partage interrompu |
@@ -150,6 +193,8 @@ après un `unpair`, ce jumelage WinPlay serait repris de nouveau.
 
 ## Limites connues
 
-- Seul l'écran principal est partagé ; on ne peut pas encore choisir un autre écran ou une fenêtre.
+- Un seul écran ou une seule fenêtre à la fois ; pas de zone libre ni de bureau étendu sur plusieurs écrans.
+- Le choix d'un écran autre que le principal et la 4K réelle n'ont pas encore été vérifiés (PC de test à un seul écran 1080p).
+- Sur Windows 10, un liseré jaune entoure la zone partagée ; Windows 11 permet de le retirer.
 - Un seul téléviseur par lancement.
 - La coupure par le téléviseur (`disconnected`) est reconnue à partir des messages de la bibliothèque WinPlay ; à revoir à chaque mise à jour de celle-ci.

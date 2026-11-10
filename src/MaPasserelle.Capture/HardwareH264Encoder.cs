@@ -4,7 +4,7 @@ using System.Runtime.InteropServices;
 using SharpGen.Runtime;
 using Vortice.MediaFoundation;
 
-namespace WinPlay.Capture;
+namespace MaPasserelle.Capture;
 
 /// <summary>
 /// Hardware-accelerated H.264 encoder using an asynchronous Media Foundation Transform.

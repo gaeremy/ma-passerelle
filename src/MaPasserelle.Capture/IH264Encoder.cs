@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
-namespace WinPlay.Capture;
+namespace MaPasserelle.Capture;
 
 /// <summary>
 /// An H.264 encoder: NV12 system-memory frames in, Annex-B access units out. Implemented

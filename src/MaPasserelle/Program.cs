@@ -7,7 +7,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
-using WinPlay.Capture;
+using MaPasserelle.Capture;
 using WinPlay.Core.Audio;
 using WinPlay.Core.Discovery;
 using WinPlay.Core.Fairplay;
@@ -19,6 +19,7 @@ const int ExitOk = 0, ExitError = 1, ExitUsage = 2, ExitNotFound = 3, ExitNotPai
 
 Console.OutputEncoding = new UTF8Encoding(false);
 Console.InputEncoding = new UTF8Encoding(false);
+DesktopCatalog.UseRealPixels();
 
 string command = args.Length > 0 && !args[0].StartsWith('-') ? args[0] : "help";
 bool json = HasFlag("--json");
@@ -32,6 +33,8 @@ try
         "discover" => await DiscoverAsync(),
         "pair" => await PairAsync(),
         "unpair" => await UnpairAsync(),
+        "screens" => Screens(),
+        "windows" => Windows(),
         "mirror" => await MirrorAsync(),
         "version" => Version(),
         "help" => Help(),
@@ -78,6 +81,26 @@ async Task<int> DiscoverAsync()
     return ExitOk;
 }
 
+int Screens()
+{
+    var screens = DesktopCatalog.Screens();
+    foreach (var s in screens)
+        Emit("screen", ("index", s.Index), ("name", s.Device), ("width", s.Width), ("height", s.Height),
+            ("x", s.X), ("y", s.Y), ("primary", s.Primary));
+    Emit("done", ("count", screens.Count));
+    return ExitOk;
+}
+
+int Windows()
+{
+    var windows = DesktopCatalog.Windows();
+    foreach (var w in windows)
+        Emit("window", ("id", (long)w.Handle), ("title", w.Title), ("process", w.Process),
+            ("width", w.Width), ("height", w.Height), ("minimized", w.Minimized));
+    Emit("done", ("count", windows.Count));
+    return ExitOk;
+}
+
 async Task<int> PairAsync()
 {
     if (GetOpt("--to") is not { } target) return Fail(ExitUsage, "usage", "pair demande --to <nom ou id>");
@@ -118,7 +141,56 @@ async Task<int> UnpairAsync()
 async Task<int> MirrorAsync()
 {
     if (GetOpt("--to") is not { } target) return Fail(ExitUsage, "usage", "mirror demande --to <nom ou id>");
-    int fps = int.TryParse(GetOpt("--fps"), out int f) ? Math.Clamp(f, 5, 60) : 30;
+    int fps = int.TryParse(GetOpt("--fps"), out int f) ? Math.Clamp(f, 5, 60) : 30; // « auto » = 30
+    int maxHeight;
+    switch ((GetOpt("--resolution") ?? "auto").ToLowerInvariant())
+    {
+        case "auto": maxHeight = 0; break;
+        case "720" or "720p": maxHeight = 720; break;
+        case "1080" or "1080p": maxHeight = 1080; break;
+        case "2160" or "2160p" or "4k": maxHeight = 2160; break;
+        default: return Fail(ExitUsage, "usage", "--resolution accepte auto, 720, 1080 ou 2160");
+    }
+    CaptureBackend backend;
+    switch ((GetOpt("--backend") ?? "graphics").ToLowerInvariant())
+    {
+        case "graphics": backend = CaptureBackend.Graphics; break;
+        case "duplication": backend = CaptureBackend.Duplication; break;
+        default: return Fail(ExitUsage, "usage", "--backend accepte graphics ou duplication");
+    }
+
+    // Ce qu'on partage : un écran (le principal par défaut) ou une fenêtre.
+    var options = new MirrorOptions { MaxHeight = maxHeight, Fps = fps, Cursor = !HasFlag("--no-cursor"), Backend = backend };
+    string sourceKind = "screen", sourceName;
+    if (GetOpt("--window") is not null || GetOpt("--window-title") is not null)
+    {
+        var windows = DesktopCatalog.Windows();
+        WindowInfo? window;
+        if (GetOpt("--window") is { } raw)
+        {
+            if (!long.TryParse(raw, out long handle)) return Fail(ExitUsage, "usage", "--window attend l'identifiant donné par « windows »");
+            window = windows.FirstOrDefault(w => w.Handle == (nint)handle);
+        }
+        else
+        {
+            string wanted = GetOpt("--window-title")!;
+            window = windows.FirstOrDefault(w => w.Title.Contains(wanted, StringComparison.CurrentCultureIgnoreCase));
+        }
+        if (window is null) return Fail(ExitNotFound, "source_not_found", "fenêtre introuvable");
+        options = options with { Kind = CaptureKind.Window, Handle = window.Handle };
+        (sourceKind, sourceName) = ("window", window.Title);
+    }
+    else
+    {
+        var screens = DesktopCatalog.Screens();
+        int index = 1;
+        if (GetOpt("--screen") is { } rawIndex && !int.TryParse(rawIndex, out index))
+            return Fail(ExitUsage, "usage", "--screen attend le numéro donné par « screens »");
+        var screen = screens.FirstOrDefault(s => s.Index == index);
+        if (screen is null) return Fail(ExitNotFound, "source_not_found", $"écran {index} introuvable");
+        options = options with { Handle = screen.Handle };
+        sourceName = screen.Device;
+    }
     int mbps = int.TryParse(GetOpt("--mbps"), out int mb) ? Math.Clamp(mb, 0, 50) : 0;
     double? minutes = double.TryParse(GetOpt("--minutes"), System.Globalization.CultureInfo.InvariantCulture, out double m) ? m : null;
     bool withAudio = !HasFlag("--no-audio");
@@ -154,12 +226,19 @@ async Task<int> MirrorAsync()
     string reason = "error";
     try
     {
-        await using var source = new ScreenMirrorSource(fps, mbps);
+        await using var source = new MirrorSource(options with { BitrateMbps = mbps });
         source.Diagnostic += d => Emit("stage", ("message", "capture: " + d));
+        source.Started += (width, height, bitrate, encoder) => Emit("video",
+            ("width", width), ("height", height), ("fps", fps), ("mbps", bitrate / 1_000_000), ("encoder", encoder));
+        source.Ended += (failed, message) =>
+        {
+            if (failed) Emit("error", ("code", "capture_failed"), ("message", message));
+            stop.TrySetResult(failed ? "capture_failed" : "source_closed");
+        };
         bool audio = session.HasAudio;
         await session.StartStreamingAsync(source, audio ? new LoopbackAudioSource() : null);
         started = DateTime.UtcNow;
-        Emit("streaming", ("id", device.DeviceId), ("name", device.Name), ("fps", fps), ("mbps", mbps), ("audio", audio));
+        Emit("streaming", ("id", device.DeviceId), ("name", device.Name), ("source", sourceKind), ("source_name", sourceName), ("audio", audio));
 
         void Status() => Emit("status",
             ("frames", session.FramesSent),
@@ -195,6 +274,7 @@ async Task<int> MirrorAsync()
             if (await Task.WhenAny(stop.Task, tick) == stop.Task)
             {
                 reason = await stop.Task;
+                if (reason == "capture_failed") exit = ExitError;
                 if (reason == "disconnected")
                 {
                     Emit("error", ("code", "disconnected"), ("message", "le téléviseur a mis fin au partage"));
@@ -239,8 +319,13 @@ int Help()
           mapasserelle discover [--seconds N]           liste les appareils du réseau
           mapasserelle pair --to <nom|id> [--pin NNNN]  jumelle (le code s'affiche sur le téléviseur)
           mapasserelle unpair --to <nom|id>             oublie un jumelage
-          mapasserelle mirror --to <nom|id> [--fps N] [--mbps N] [--no-audio] [--minutes M] [--no-stdin]
-                                                        partage l'écran ; taper « stop » ou « status »
+          mapasserelle screens                          liste les écrans
+          mapasserelle windows                          liste les fenêtres
+          mapasserelle mirror --to <nom|id> [options]   partage ; taper « stop » ou « status »
+              --screen N | --window ID | --window-title TEXTE     quoi partager (défaut : écran principal)
+              --resolution auto|720|1080|2160           taille maximale de l'image (auto = 1080)
+              --fps 30|60   --mbps N   --no-audio   --no-cursor
+              --minutes M   --no-stdin   --backend graphics|duplication
           mapasserelle version
 
         Ajouter --json pour une sortie lisible par un programme (une ligne JSON par événement).

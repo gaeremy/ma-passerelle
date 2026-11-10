@@ -5,7 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <LangVersion>latest</LangVersion>
-    <RootNamespace>WinPlay.Capture</RootNamespace>
+    <RootNamespace>MaPasserelle.Capture</RootNamespace>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <Platforms>x64;ARM64</Platforms>
   </PropertyGroup>
@@ -18,7 +18,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\WinPlay.Core\WinPlay.Core.csproj" />
+    <ProjectReference Include="..\..\vendor\WinPlay\src\WinPlay.Core\WinPlay.Core.csproj" />
   </ItemGroup>
 
 </Project>

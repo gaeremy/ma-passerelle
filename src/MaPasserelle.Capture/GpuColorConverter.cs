@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using Vortice.Direct3D11;
 using Vortice.DXGI;
 
-namespace WinPlay.Capture;
+namespace MaPasserelle.Capture;
 
 /// <summary>
 /// GPU color-convert + scale using the Direct3D11 Video Processor: BGRA desktop frame →
@@ -101,6 +101,13 @@ internal sealed class GpuColorConverter : IDisposable
 
         // Studio-range BT.709 in, studio-range NV12 out (standard SDR mirroring).
         _videoContext.VideoProcessorSetStreamFrameFormat(_processor, 0, VideoFrameFormat.Progressive);
+
+        // Garde les proportions de la source : elle est centrée dans l'image de sortie,
+        // avec des bandes noires si les deux formats diffèrent.
+        double scale = Math.Min((double)dstW / srcW, (double)dstH / srcH);
+        int w = Math.Min(dstW, (int)Math.Round(srcW * scale)), h = Math.Min(dstH, (int)Math.Round(srcH * scale));
+        int x = (dstW - w) / 2, y = (dstH - h) / 2;
+        _videoContext.VideoProcessorSetStreamDestRect(_processor, 0, true, new Vortice.RawRect(x, y, x + w, y + h));
     }
 
     /// <summary>Converts the current <see cref="InputTexture"/> into <paramref name="nv12"/> (Y plane then interleaved UV).</summary>

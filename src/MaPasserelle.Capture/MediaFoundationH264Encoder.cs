@@ -3,7 +3,7 @@ using System.Runtime.InteropServices;
 using SharpGen.Runtime;
 using Vortice.MediaFoundation;
 
-namespace WinPlay.Capture;
+namespace MaPasserelle.Capture;
 
 /// <summary>
 /// Software Media Foundation H.264 encoder (Microsoft's encoder MFT, always present) —

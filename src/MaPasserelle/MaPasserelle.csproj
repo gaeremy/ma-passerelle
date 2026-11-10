@@ -14,7 +14,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\vendor\WinPlay\src\WinPlay.Core\WinPlay.Core.csproj" />
-    <ProjectReference Include="..\..\vendor\WinPlay\src\WinPlay.Capture\WinPlay.Capture.csproj" />
+    <ProjectReference Include="..\MaPasserelle.Capture\MaPasserelle.Capture.csproj" />
   </ItemGroup>
 
   <ItemGroup>
