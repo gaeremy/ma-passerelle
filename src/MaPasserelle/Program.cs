@@ -103,7 +103,7 @@ int Windows()
 
 async Task<int> PairAsync()
 {
-    if (GetOpt("--to") is not { } target) return Fail(ExitUsage, "usage", "pair demande --to <nom ou id>");
+    if (GetOpt("--to") is not { } target) return Fail(ExitUsage, "usage", "pair demande --to <nom, id ou adresse IP>");
     var device = await FindAsync(target);
     if (device is null || Ipv4(device) is not { } address)
         return Fail(ExitNotFound, "not_found", $"appareil « {target} » introuvable sur le réseau");
@@ -129,7 +129,7 @@ async Task<int> PairAsync()
 
 async Task<int> UnpairAsync()
 {
-    if (GetOpt("--to") is not { } target) return Fail(ExitUsage, "usage", "unpair demande --to <nom ou id>");
+    if (GetOpt("--to") is not { } target) return Fail(ExitUsage, "usage", "unpair demande --to <nom, id ou adresse IP>");
     // L'id suffit : l'appareil n'a pas besoin d'être allumé pour être oublié.
     var device = await FindAsync(target, seconds: 4);
     string id = device?.DeviceId ?? AirPlayDevice.NormalizeDeviceId(target);
@@ -140,7 +140,7 @@ async Task<int> UnpairAsync()
 
 async Task<int> MirrorAsync()
 {
-    if (GetOpt("--to") is not { } target) return Fail(ExitUsage, "usage", "mirror demande --to <nom ou id>");
+    if (GetOpt("--to") is not { } target) return Fail(ExitUsage, "usage", "mirror demande --to <nom, id ou adresse IP>");
     int fps = int.TryParse(GetOpt("--fps"), out int f) ? Math.Clamp(f, 5, 60) : 30; // « auto » = 30
     int maxHeight;
     switch ((GetOpt("--resolution") ?? "auto").ToLowerInvariant())
@@ -317,11 +317,13 @@ int Help()
         Ma Passerelle — partage d'écran compatible Apple TV
 
           mapasserelle discover [--seconds N]           liste les appareils du réseau
-          mapasserelle pair --to <nom|id> [--pin NNNN]  jumelle (le code s'affiche sur le téléviseur)
-          mapasserelle unpair --to <nom|id>             oublie un jumelage
+          mapasserelle pair --to <nom|id|IP> [--pin NNNN]
+                                                        jumelle (le code s'affiche sur le téléviseur)
+          mapasserelle unpair --to <nom|id|IP>          oublie un jumelage
           mapasserelle screens                          liste les écrans
           mapasserelle windows                          liste les fenêtres
-          mapasserelle mirror --to <nom|id> [options]   partage ; taper « stop » ou « status »
+          mapasserelle mirror --to <nom|id|IP> [options]
+                                                        partage ; taper « stop » ou « status »
               --screen N | --window ID | --window-title TEXTE     quoi partager (défaut : écran principal)
               --resolution auto|720|1080|2160           taille maximale de l'image (auto = 1080)
               --fps 30|60   --mbps N   --no-audio   --no-cursor
@@ -345,9 +347,14 @@ bool HasFlag(string name) => args.Contains(name);
 static IPAddress? Ipv4(AirPlayDevice d) =>
     d.Addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
 
-/// Cherche un appareil par nom (sans tenir compte de la casse) ou par identifiant.
+/// Cherche un appareil par nom (sans tenir compte de la casse) ou par identifiant, sur le
+/// réseau local. Une adresse IP (« 10.0.3.104 » ou « 10.0.3.104:7000 ») évite la recherche :
+/// utile quand le réseau la bloque (Wi-Fi d'établissement, réseaux séparés).
 async Task<AirPlayDevice?> FindAsync(string target, int seconds = 8)
 {
+    if (IPEndPoint.TryParse(target, out var endpoint) && endpoint.Address.AddressFamily == AddressFamily.InterNetwork)
+        return await AskDeviceAsync(endpoint.Address, endpoint.Port == 0 ? 7000 : endpoint.Port);
+
     Emit("searching", ("target", target));
     using var browser = new AirPlayBrowser();
     browser.Start();
@@ -363,6 +370,37 @@ async Task<AirPlayDevice?> FindAsync(string target, int seconds = 8)
         await Task.Delay(300);
     }
     return found;
+}
+
+/// Interroge directement un appareil (GET /info) pour obtenir son identifiant et son nom.
+async Task<AirPlayDevice?> AskDeviceAsync(IPAddress address, int port)
+{
+    Emit("asking", ("address", address.ToString()), ("port", port));
+    try
+    {
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var rtsp = new RtspConnection();
+        await rtsp.ConnectAsync(address, port, timeout.Token);
+        var response = await rtsp.RequestAsync(new RtspRequest { Method = "GET", Uri = "/info" }, timeout.Token);
+        response.EnsureSuccess("GET /info");
+        var info = WinPlay.Core.Plist.BinaryPlist.ReadDictionary(response.Body);
+        if (info.GetValueOrDefault("deviceID") is not string deviceId) return null;
+        return new AirPlayDevice
+        {
+            DeviceId = AirPlayDevice.NormalizeDeviceId(deviceId),
+            Name = info.GetValueOrDefault("name") as string ?? address.ToString(),
+            Model = info.GetValueOrDefault("model") as string,
+            RawFeatures = info.GetValueOrDefault("features") is long features ? (ulong)features : 0,
+            PublicKey = info.GetValueOrDefault("pk") is byte[] pk ? Convert.ToHexString(pk).ToLowerInvariant() : null,
+            Addresses = [address],
+            AirPlayPort = port,
+        };
+    }
+    catch (Exception ex) when (ex is SocketException or IOException or OperationCanceledException or RtspException or FormatException or InvalidDataException)
+    {
+        Emit("stage", ("message", $"pas de réponse de {address}:{port} ({ex.Message})"));
+        return null;
+    }
 }
 
 /// Écrit un événement : une ligne JSON avec --json, sinon une ligne lisible.

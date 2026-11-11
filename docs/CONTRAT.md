@@ -28,6 +28,20 @@ et écrit sur son entrée standard. Il n'y a ni bibliothèque partagée ni mémo
 (`id`, renvoyé par `discover`). L'identifiant est préférable : il ne change pas si
 l'utilisateur renomme son téléviseur.
 
+Nom et identifiant passent par une recherche sur le réseau local (jusqu'à 8 secondes), que
+certains réseaux bloquent (Wi-Fi d'établissement, réseaux séparés). `--to` accepte donc aussi
+une **adresse IPv4**, éventuellement suivie du port (`10.0.3.104` ou `10.0.3.104:7000`) :
+Ma Passerelle interroge alors directement l'appareil, sans recherche, et le partage démarre
+plus vite. Dans ce cas, `searching` est remplacé par :
+
+```json
+{"event":"asking","address":"10.0.3.104","port":7000}
+```
+
+Si rien ne répond dans les 5 secondes : erreur `not_found` (code 3). Le jumelage est retrouvé
+par l'identifiant que renvoie l'appareil ; l'appelant peut donc mémoriser l'adresse donnée par
+`discover` et s'en servir ensuite.
+
 ## Commandes
 
 ### `discover [--seconds N]`
