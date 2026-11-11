@@ -1,18 +1,16 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 // Ma Passerelle — partage d'écran compatible Apple TV, compagnon de Mon Estrade.
 // Programme autonome piloté en ligne de commande ; le contrat est décrit dans docs/CONTRAT.md.
-using System.Net;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 using System.Text.Encodings.Web;
 using System.Text.Json;
 using MaPasserelle.Capture;
-using WinPlay.Core.Audio;
+using MaPasserelle.Engine;
 using WinPlay.Core.Discovery;
 using WinPlay.Core.Fairplay;
 using WinPlay.Core.Hap;
-using WinPlay.Core.Mirror;
 using WinPlay.Core.Rtsp;
 
 const int ExitOk = 0, ExitError = 1, ExitUsage = 2, ExitNotFound = 3, ExitNotPaired = 4, ExitPairingFailed = 5, ExitConnection = 6;
@@ -60,22 +58,18 @@ async Task<int> DiscoverAsync()
 {
     int seconds = int.TryParse(GetOpt("--seconds"), out int s) ? Math.Clamp(s, 1, 60) : 6;
     Emit("searching", ("seconds", seconds));
-    using var browser = new AirPlayBrowser();
-    browser.Start();
-    await Task.Delay(TimeSpan.FromSeconds(seconds));
-
+    var devices = await Devices.DiscoverAsync(TimeSpan.FromSeconds(seconds));
     var store = new Credentials();
-    var devices = browser.Snapshot();
-    foreach (var d in devices.OrderBy(d => d.Name, StringComparer.CurrentCultureIgnoreCase))
+    foreach (var d in devices)
     {
         Emit("device",
             ("id", d.DeviceId),
             ("name", d.Name),
             ("model", d.Model),
-            ("address", Ipv4(d)?.ToString()),
+            ("address", Devices.Ipv4(d)?.ToString()),
             ("mirroring", d.IsMirroringCandidate),
             ("audio", d.SupportsAudio),
-            ("paired", store.Load(d.DeviceId) is not null));
+            ("paired", store.IsPaired(d.DeviceId)));
     }
     Emit("done", ("count", devices.Count));
     return ExitOk;
@@ -105,10 +99,10 @@ async Task<int> PairAsync()
 {
     if (GetOpt("--to") is not { } target) return Fail(ExitUsage, "usage", "pair demande --to <nom, id ou adresse IP>");
     var device = await FindAsync(target);
-    if (device is null || Ipv4(device) is not { } address)
+    if (device is null || Devices.Ipv4(device) is not { } address)
         return Fail(ExitNotFound, "not_found", $"appareil « {target} » introuvable sur le réseau");
 
-    using var handle = await ReceiverPairing.BeginAsync(address, device.AirPlayPort ?? 7000, CancellationToken.None);
+    using var handle = await ReceiverPairing.BeginAsync(address, device.AirPlayPort ?? Devices.DefaultPort, CancellationToken.None);
     Emit("pin_required", ("id", device.DeviceId), ("name", device.Name));
 
     string? pin = GetOpt("--pin");
@@ -196,7 +190,7 @@ async Task<int> MirrorAsync()
     bool withAudio = !HasFlag("--no-audio");
 
     var device = await FindAsync(target);
-    if (device is null || Ipv4(device) is not { } address)
+    if (device is null || Devices.Ipv4(device) is not { } address)
         return Fail(ExitNotFound, "not_found", $"appareil « {target} » introuvable sur le réseau");
     if (!device.IsMirroringCandidate)
         return Fail(ExitError, "not_supported", $"{device.Name} n'accepte pas le partage d'écran");
@@ -204,47 +198,28 @@ async Task<int> MirrorAsync()
     if (credentials is null)
         return Fail(ExitNotPaired, "not_paired", $"{device.Name} n'est pas encore jumelé : lancer d'abord « pair »");
 
-    // Trois façons d'arrêter : la commande « stop » (ou la fermeture) sur l'entrée standard,
-    // Ctrl+C, ou la durée limite. Mon Estrade tient l'entrée standard : s'il se ferme, on s'arrête.
-    var stop = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
-    Console.CancelKeyPress += (_, e) => { e.Cancel = true; stop.TrySetResult("signal"); };
-
     Emit("connecting", ("id", device.DeviceId), ("name", device.Name), ("address", address.ToString()));
-    var session = await MirrorSession.ConnectAsync(address, device.AirPlayPort ?? 7000, credentials,
-        stage =>
-        {
-            Emit("stage", ("message", stage));
-            // Le téléviseur a coupé (veille, extinction, autre source) : la bibliothèque le signale
-            // seulement par ces messages, et continue de compter des images. On s'arrête donc ici.
-            if (stage.StartsWith("data channel closed", StringComparison.Ordinal)
-                || stage.StartsWith("feedback ended", StringComparison.Ordinal)
-                || stage.StartsWith("event channel closed", StringComparison.Ordinal))
-                stop.TrySetResult("disconnected");
-        }, withAudio: withAudio);
-    var started = DateTime.UtcNow;
-    int exit = ExitOk;
-    string reason = "error";
+    var mirroring = new Mirroring(device, credentials, options with { BitrateMbps = mbps }, withAudio);
+    mirroring.Stage += stage => Emit("stage", ("message", stage));
+    mirroring.Video += (width, height, bitrate, encoder) => Emit("video",
+        ("width", width), ("height", height), ("fps", fps), ("mbps", bitrate / 1_000_000), ("encoder", encoder));
+
+    MirrorEnd? end = null;
+    bool streaming = false;
     try
     {
-        await using var source = new MirrorSource(options with { BitrateMbps = mbps });
-        source.Diagnostic += d => Emit("stage", ("message", "capture: " + d));
-        source.Started += (width, height, bitrate, encoder) => Emit("video",
-            ("width", width), ("height", height), ("fps", fps), ("mbps", bitrate / 1_000_000), ("encoder", encoder));
-        source.Ended += (failed, message) =>
-        {
-            if (failed) Emit("error", ("code", "capture_failed"), ("message", message));
-            stop.TrySetResult(failed ? "capture_failed" : "source_closed");
-        };
-        bool audio = session.HasAudio;
-        await session.StartStreamingAsync(source, audio ? new LoopbackAudioSource() : null);
-        started = DateTime.UtcNow;
-        Emit("streaming", ("id", device.DeviceId), ("name", device.Name), ("source", sourceKind), ("source_name", sourceName), ("audio", audio));
+        await mirroring.StartAsync();
+        streaming = true;
+        Emit("streaming", ("id", device.DeviceId), ("name", device.Name), ("source", sourceKind), ("source_name", sourceName), ("audio", mirroring.HasAudio));
 
         void Status() => Emit("status",
-            ("frames", session.FramesSent),
-            ("seconds", (long)(DateTime.UtcNow - started).TotalSeconds),
-            ("audio", audio));
+            ("frames", mirroring.FramesSent),
+            ("seconds", (long)mirroring.Elapsed.TotalSeconds),
+            ("audio", mirroring.HasAudio));
 
+        // Façons d'arrêter propres à la ligne de commande : « stop » (ou la fermeture) sur l'entrée
+        // standard, Ctrl+C, la durée limite. Mon Estrade tient l'entrée standard : s'il se ferme, on s'arrête.
+        Console.CancelKeyPress += (_, e) => { e.Cancel = true; mirroring.Stop("signal"); };
         if (!HasFlag("--no-stdin"))
         {
             _ = Task.Run(async () =>
@@ -252,10 +227,10 @@ async Task<int> MirrorAsync()
                 while (true)
                 {
                     string? line = await Console.In.ReadLineAsync();
-                    if (line is null) { stop.TrySetResult("stdin_closed"); return; }
+                    if (line is null) { mirroring.Stop("stdin_closed"); return; }
                     switch (line.Trim().ToLowerInvariant())
                     {
-                        case "stop": stop.TrySetResult("command"); return;
+                        case "stop": mirroring.Stop("command"); return;
                         case "status": Status(); break;
                         case "": break;
                         default: Emit("error", ("code", "unknown_command"), ("message", $"commande inconnue « {line.Trim()} »")); break;
@@ -264,44 +239,32 @@ async Task<int> MirrorAsync()
             });
         }
 
-        // Surveillance : état toutes les 10 s, durée limite, et flux figé (plus aucune image
-        // envoyée pendant 20 s = le téléviseur a très probablement coupé la session).
-        long lastFrames = 0;
-        var lastProgress = DateTime.UtcNow;
+        // État toutes les 10 s et durée limite ; le moteur détecte lui-même les autres fins.
         while (true)
         {
             var tick = Task.Delay(TimeSpan.FromSeconds(10));
-            if (await Task.WhenAny(stop.Task, tick) == stop.Task)
-            {
-                reason = await stop.Task;
-                if (reason == "capture_failed") exit = ExitError;
-                if (reason == "disconnected")
-                {
-                    Emit("error", ("code", "disconnected"), ("message", "le téléviseur a mis fin au partage"));
-                    exit = ExitConnection;
-                }
-                break;
-            }
+            if (await Task.WhenAny(mirroring.Completion, tick) == mirroring.Completion) break;
             Status();
-            long frames = session.FramesSent;
-            if (frames != lastFrames) { lastFrames = frames; lastProgress = DateTime.UtcNow; }
-            else if (DateTime.UtcNow - lastProgress > TimeSpan.FromSeconds(20))
-            {
-                Emit("error", ("code", "stream_stalled"), ("message", "plus aucune image envoyée depuis 20 secondes"));
-                reason = "stalled"; exit = ExitConnection; break;
-            }
-            if (minutes is { } limit && DateTime.UtcNow - started > TimeSpan.FromMinutes(limit)) { reason = "time_limit"; break; }
+            if (minutes is { } limit && mirroring.Elapsed > TimeSpan.FromMinutes(limit)) { mirroring.Stop("time_limit"); break; }
         }
-
+        end = await mirroring.Completion;
     }
     finally
     {
-        // La fermeture envoie l'ordre d'arrêt au téléviseur ; « stopped » est toujours le dernier événement.
-        long frames = session.FramesSent;
-        await session.DisposeAsync();
-        Emit("stopped", ("reason", reason), ("frames", frames), ("seconds", (long)(DateTime.UtcNow - started).TotalSeconds));
+        // La libération envoie l'ordre d'arrêt au téléviseur. Une connexion qui échoue ne produit pas
+        // de « stopped » (l'erreur suit) ; sinon « stopped » est toujours le dernier événement.
+        long frames = mirroring.FramesSent;
+        long seconds = (long)mirroring.Elapsed.TotalSeconds;
+        if (end?.IsError == true) Emit("error", ("code", end.ErrorCode), ("message", end.Message));
+        await mirroring.DisposeAsync();
+        if (streaming) Emit("stopped", ("reason", end?.Reason ?? "error"), ("frames", frames), ("seconds", seconds));
     }
-    return exit;
+    return end.Reason switch
+    {
+        "disconnected" or "stalled" => ExitConnection,
+        "capture_failed" => ExitError,
+        _ => ExitOk,
+    };
 }
 
 int Version()
@@ -344,63 +307,14 @@ string? GetOpt(string name) =>
 
 bool HasFlag(string name) => args.Contains(name);
 
-static IPAddress? Ipv4(AirPlayDevice d) =>
-    d.Addresses.FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork);
-
-/// Cherche un appareil par nom (sans tenir compte de la casse) ou par identifiant, sur le
-/// réseau local. Une adresse IP (« 10.0.3.104 » ou « 10.0.3.104:7000 ») évite la recherche :
-/// utile quand le réseau la bloque (Wi-Fi d'établissement, réseaux séparés).
+/// Cherche un appareil (nom, identifiant ou adresse IP) en annonçant la méthode utilisée.
 async Task<AirPlayDevice?> FindAsync(string target, int seconds = 8)
 {
-    if (IPEndPoint.TryParse(target, out var endpoint) && endpoint.Address.AddressFamily == AddressFamily.InterNetwork)
-        return await AskDeviceAsync(endpoint.Address, endpoint.Port == 0 ? 7000 : endpoint.Port);
-
-    Emit("searching", ("target", target));
-    using var browser = new AirPlayBrowser();
-    browser.Start();
-    string id = AirPlayDevice.NormalizeDeviceId(target);
-    var deadline = DateTime.UtcNow.AddSeconds(seconds);
-    AirPlayDevice? found = null;
-    while (DateTime.UtcNow < deadline)
-    {
-        found = browser.Snapshot().FirstOrDefault(d =>
-            string.Equals(d.Name, target, StringComparison.OrdinalIgnoreCase)
-            || string.Equals(d.DeviceId, id, StringComparison.OrdinalIgnoreCase));
-        if (found is not null && Ipv4(found) is not null) break;
-        await Task.Delay(300);
-    }
-    return found;
-}
-
-/// Interroge directement un appareil (GET /info) pour obtenir son identifiant et son nom.
-async Task<AirPlayDevice?> AskDeviceAsync(IPAddress address, int port)
-{
-    Emit("asking", ("address", address.ToString()), ("port", port));
-    try
-    {
-        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(5));
-        using var rtsp = new RtspConnection();
-        await rtsp.ConnectAsync(address, port, timeout.Token);
-        var response = await rtsp.RequestAsync(new RtspRequest { Method = "GET", Uri = "/info" }, timeout.Token);
-        response.EnsureSuccess("GET /info");
-        var info = WinPlay.Core.Plist.BinaryPlist.ReadDictionary(response.Body);
-        if (info.GetValueOrDefault("deviceID") is not string deviceId) return null;
-        return new AirPlayDevice
-        {
-            DeviceId = AirPlayDevice.NormalizeDeviceId(deviceId),
-            Name = info.GetValueOrDefault("name") as string ?? address.ToString(),
-            Model = info.GetValueOrDefault("model") as string,
-            RawFeatures = info.GetValueOrDefault("features") is long features ? (ulong)features : 0,
-            PublicKey = info.GetValueOrDefault("pk") is byte[] pk ? Convert.ToHexString(pk).ToLowerInvariant() : null,
-            Addresses = [address],
-            AirPlayPort = port,
-        };
-    }
-    catch (Exception ex) when (ex is SocketException or IOException or OperationCanceledException or RtspException or FormatException or InvalidDataException)
-    {
-        Emit("stage", ("message", $"pas de réponse de {address}:{port} ({ex.Message})"));
-        return null;
-    }
+    if (Devices.TryParseAddress(target, out var address, out int port))
+        Emit("asking", ("address", address.ToString()), ("port", port));
+    else
+        Emit("searching", ("target", target));
+    return await Devices.FindAsync(target, seconds);
 }
 
 /// Écrit un événement : une ligne JSON avec --json, sinon une ligne lisible.
@@ -428,24 +342,4 @@ int Fail(int exitCode, string code, string message)
 {
     Emit("error", ("code", code), ("message", message));
     return exitCode;
-}
-
-/// Jumelages de Ma Passerelle (%APPDATA%\MaPasserelle), protégés par DPAPI pour l'utilisateur courant.
-/// Un jumelage déjà fait avec WinPlay sur ce compte est repris tel quel à la première utilisation.
-sealed class Credentials
-{
-    private readonly CredentialStore _own = new(Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MaPasserelle", "credentials.dat"));
-
-    public HapPairingCredentials? Load(string deviceId)
-    {
-        if (_own.Load(deviceId) is { } mine) return mine;
-        if (new CredentialStore().Load(deviceId) is not { } imported) return null;
-        _own.Save(deviceId, imported);
-        return imported;
-    }
-
-    public void Save(string deviceId, HapPairingCredentials credentials) => _own.Save(deviceId, credentials);
-
-    public void Remove(string deviceId) => _own.Remove(deviceId);
 }
