@@ -23,7 +23,24 @@ public partial class App : Application
     private TaskbarIcon? _tray;
     private MenuFlyoutItem? _shareItem;
 
-    public App() => InitializeComponent();
+    public App()
+    {
+        InitializeComponent();
+        UnhandledException += (_, e) => { Log(e.Exception); e.Handled = true; };
+        TaskScheduler.UnobservedTaskException += (_, e) => { Log(e.Exception); e.SetObserved(); };
+    }
+
+    /// <summary>Note une erreur imprévue dans %APPDATA%\MaPasserelle\erreurs.log, sans arrêter le programme.</summary>
+    public static void Log(Exception exception)
+    {
+        try
+        {
+            string folder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "MaPasserelle");
+            Directory.CreateDirectory(folder);
+            File.AppendAllText(Path.Combine(folder, "erreurs.log"), $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {exception}{Environment.NewLine}{Environment.NewLine}");
+        }
+        catch (IOException) { }
+    }
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
@@ -31,6 +48,8 @@ public partial class App : Application
         if (!first)
         {
             // Une instance tourne déjà : on lui demande d'afficher son panneau, et on s'arrête.
+            // Windows a donné le premier plan à cette nouvelle instance : on le cède à la première.
+            AllowSetForegroundWindow(-1 /* ASFW_ANY */);
             try { EventWaitHandle.OpenExisting(ShowSignalName).Set(); } catch (WaitHandleCannotBeOpenedException) { }
             Exit();
             return;
@@ -90,6 +109,8 @@ public partial class App : Application
         _instance?.ReleaseMutex();
         Exit();
     }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll")] private static extern bool AllowSetForegroundWindow(int processId);
 
     private sealed class Relay(Action action) : ICommand
     {

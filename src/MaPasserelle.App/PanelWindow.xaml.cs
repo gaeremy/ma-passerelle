@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Reflection;
 using System.Runtime.InteropServices;
+using System.Runtime.InteropServices.WindowsRuntime;
 using MaPasserelle.Capture;
 using MaPasserelle.Engine;
 using Microsoft.UI.Windowing;
@@ -9,14 +11,16 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
 using Windows.Graphics;
+using Windows.Graphics.Imaging;
 using Windows.System;
 using WinPlay.Core.Discovery;
 using WinPlay.Core.Hap;
 
 namespace MaPasserelle.App;
 
-/// <summary>Un téléviseur dans la liste.</summary>
+/// <summary>Un appareil de projection dans la liste.</summary>
 public sealed class DeviceItem(AirPlayDevice device, bool paired)
 {
     public AirPlayDevice Device { get; } = device;
@@ -24,12 +28,34 @@ public sealed class DeviceItem(AirPlayDevice device, bool paired)
     public string Label => Paired ? Device.Name : Device.Name + " (à jumeler)";
 }
 
-/// <summary>Un écran ou une fenêtre à partager.</summary>
-public sealed class SourceItem(string label, CaptureKind kind, nint handle)
+/// <summary>Un écran ou une fenêtre à partager, avec sa miniature (chargée après coup).</summary>
+public sealed class SourceItem(string label, string detail, CaptureKind kind, nint handle) : INotifyPropertyChanged
 {
+    private ImageSource? _thumbnail;
+
     public string Label { get; } = label;
+    public string Detail { get; } = detail;
     public CaptureKind Kind { get; } = kind;
     public nint Handle { get; } = handle;
+    public string Glyph => Kind == CaptureKind.Screen ? "" : "";
+
+    public ImageSource? Thumbnail
+    {
+        get => _thumbnail;
+        set
+        {
+            _thumbnail = value;
+            PropertyChanged?.Invoke(this, new(nameof(Thumbnail)));
+            PropertyChanged?.Invoke(this, new(nameof(PlaceholderVisibility)));
+        }
+    }
+
+    public Visibility PlaceholderVisibility => _thumbnail is null ? Visibility.Visible : Visibility.Collapsed;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+    // Nom lu par les lecteurs d'écran et l'automatisation.
+    public override string ToString() => Label;
 }
 
 /// <summary>
@@ -38,7 +64,8 @@ public sealed class SourceItem(string label, CaptureKind kind, nint handle)
 /// </summary>
 public sealed partial class PanelWindow : Window
 {
-    private const int WidthDip = 380, HeightDip = 600;
+    private const int WidthDip = 420, HeightDip = 660;
+    private const int ThumbWidth = 340, ThumbHeight = 192; // deux fois la taille affichée, pour les écrans à haute densité
 
     private readonly AppSettings _settings = AppSettings.Load();
     private readonly ObservableCollection<DeviceItem> _devices = [];
@@ -50,6 +77,8 @@ public sealed partial class PanelWindow : Window
     private bool _loading = true;
     private bool _busy;
     private bool _hadFocus;
+    private long _shownAt;
+    private int _sourcesVersion;
     private CancellationTokenSource? _search;
 
     /// <summary>L'état a changé (partage démarré ou arrêté) : l'icône met à jour son infobulle et son menu.</summary>
@@ -62,12 +91,16 @@ public sealed partial class PanelWindow : Window
     {
         InitializeComponent();
         DeviceBox.ItemsSource = _devices;
-        SourceBox.ItemsSource = _sources;
+        SourceGrid.ItemsSource = _sources;
+        SourceGrid.SelectionChanged += (_, _) => UpdateDeviceState();
+        CancelPairing();
 
-        QualityBox.SelectedIndex = _settings.MaxHeight switch { 720 => 1, 1080 => 2, 2160 => 3, _ => 0 };
-        FpsBox.SelectedIndex = _settings.Fps >= 60 ? 1 : 0;
+        (_settings.MaxHeight switch { 720 => Quality720, 2160 => Quality2160, _ => Quality1080 }).IsChecked = true;
+        (_settings.Fps >= 60 ? Fps60 : Fps30).IsChecked = true;
         AudioSwitch.IsOn = _settings.Audio;
         CursorSwitch.IsOn = _settings.Cursor;
+        Startup.Refresh();
+        StartupSwitch.IsOn = Startup.IsEnabled;
         string version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion.Split('+')[0] ?? "";
         VersionText.Text = "Version " + version;
@@ -103,6 +136,7 @@ public sealed partial class PanelWindow : Window
     public void ShowPanel()
     {
         _hadFocus = false;
+        _shownAt = Environment.TickCount64;
         PlaceNearTray();
         AppWindow.Show();
         Activate();
@@ -110,7 +144,11 @@ public sealed partial class PanelWindow : Window
         if (!IsSharing) RefreshSources();
     }
 
-    public void HidePanel() => AppWindow.Hide();
+    public void HidePanel()
+    {
+        AppWindow.Hide();
+        OnCloseSettings(this, new RoutedEventArgs());
+    }
 
     public void TogglePanel()
     {
@@ -130,7 +168,8 @@ public sealed partial class PanelWindow : Window
 
     // Se masque quand on clique ailleurs. Les listes déroulantes s'ouvrent dans leur propre fenêtre :
     // on ne se masque donc que si le premier plan appartient à un autre programme. Si Windows a refusé
-    // le premier plan au panneau, il n'a jamais eu le focus : il reste affiché.
+    // le premier plan au panneau, il n'a jamais eu le focus : il reste affiché. Juste après l'ouverture,
+    // le premier plan peut encore passer d'un programme à l'autre (relance de l'application) : on l'ignore.
     private void OnActivated(object sender, WindowActivatedEventArgs args)
     {
         if (args.WindowActivationState != WindowActivationState.Deactivated)
@@ -138,7 +177,7 @@ public sealed partial class PanelWindow : Window
             if (GetForegroundWindow() == WinRT.Interop.WindowNative.GetWindowHandle(this)) _hadFocus = true;
             return;
         }
-        if (!_hadFocus) return;
+        if (!_hadFocus || Environment.TickCount64 - _shownAt < 600) return;
         DispatcherQueue.TryEnqueue(async () =>
         {
             await Task.Delay(150);
@@ -151,17 +190,17 @@ public sealed partial class PanelWindow : Window
 
     private void OnQuit(object sender, RoutedEventArgs e) => _ = ((App)Application.Current).QuitAsync();
 
-    // ------------------------------------------------------------------ téléviseurs
+    // ------------------------------------------------------------------ appareils
 
     private void OnSearch(object sender, RoutedEventArgs e) => _ = SearchAsync();
 
-    /// <summary>Le dernier téléviseur utilisé d'abord (question directe à son adresse), puis la recherche réseau.</summary>
+    /// <summary>Le dernier appareil utilisé d'abord (question directe à son adresse), puis la recherche réseau.</summary>
     private async Task SearchAsync()
     {
         _search?.Cancel();
         var search = _search = new CancellationTokenSource();
         SearchButton.IsEnabled = false;
-        if (_devices.Count == 0) DeviceBox.PlaceholderText = "Recherche des téléviseurs…";
+        if (_devices.Count == 0) DeviceBox.PlaceholderText = "Recherche des appareils…";
         try
         {
             var credentials = new Credentials();
@@ -178,9 +217,9 @@ public sealed partial class PanelWindow : Window
         {
             if (search == _search)
             {
-                SearchButton.IsEnabled = true;
+                SearchButton.IsEnabled = !IsSharing;
                 if (_devices.Count == 0)
-                    DeviceBox.PlaceholderText = "Aucun téléviseur trouvé : essayer l'adresse IP";
+                    DeviceBox.PlaceholderText = "Aucun appareil trouvé, essayer l'adresse IP";
             }
         }
     }
@@ -191,7 +230,7 @@ public sealed partial class PanelWindow : Window
         if (existing is not null) return existing;
         var item = new DeviceItem(device, paired);
         _devices.Add(item);
-        // Choix par défaut : le dernier téléviseur utilisé, sinon un téléviseur déjà jumelé, sinon le premier.
+        // Choix par défaut : le dernier appareil utilisé, sinon un appareil déjà jumelé, sinon le premier.
         bool isLast = _settings.DeviceId == device.DeviceId;
         bool lastSelected = SelectedDevice?.Device.DeviceId == _settings.DeviceId;
         if (SelectedDevice is null || isLast || (!lastSelected && paired && !SelectedDevice.Paired))
@@ -214,9 +253,11 @@ public sealed partial class PanelWindow : Window
         if (!IsSharing)
         {
             SetShareText(item is null ? "Partager" : "Partager sur " + item.Device.Name);
-            ShareButton.IsEnabled = item is { Paired: true } && !_busy;
+            ShareButton.IsEnabled = CanShare;
         }
     }
+
+    private bool CanShare => !_busy && SelectedDevice is { Paired: true } && SourceGrid.SelectedItem is SourceItem;
 
     private void OnShowAddress(object sender, RoutedEventArgs e)
     {
@@ -244,7 +285,7 @@ public sealed partial class PanelWindow : Window
             var device = await Devices.AskAsync(address, port);
             if (device is null)
             {
-                Show(InfoBarSeverity.Warning, "Pas de réponse", $"Aucun téléviseur compatible ne répond à l'adresse {address}.");
+                Show(InfoBarSeverity.Warning, "Pas de réponse", $"Aucun appareil compatible ne répond à l'adresse {address}.");
                 return;
             }
             var item = AddDevice(device, new Credentials().IsPaired(device.DeviceId));
@@ -322,7 +363,7 @@ public sealed partial class PanelWindow : Window
         _pairing?.Dispose();
         _pairing = null;
         _pairingDevice = null;
-        PairText.Text = "Ce téléviseur n'est pas encore jumelé. Le jumelage se fait une seule fois.";
+        PairText.Text = "Cet appareil n'est pas encore jumelé. Le jumelage se fait une seule fois.";
         PairButton.Visibility = Visibility.Visible;
         PinPanel.Visibility = Visibility.Collapsed;
     }
@@ -339,39 +380,93 @@ public sealed partial class PanelWindow : Window
         }
     }
 
-    // ------------------------------------------------------------------ sources
+    // ------------------------------------------------------------------ écrans et fenêtres
 
     private void OnKindChanged(object sender, RoutedEventArgs e) => RefreshSources();
 
-    private void OnSourceOpened(object? sender, object e) => RefreshSources(keepSelection: true);
-
-    private void RefreshSources(bool keepSelection = false)
+    /// <summary>Remplit la grille, puis charge les miniatures en arrière-plan.</summary>
+    private void RefreshSources()
     {
-        if (SourceBox is null) return; // pendant InitializeComponent
-        var previous = (SourceBox.SelectedItem as SourceItem)?.Handle;
+        if (SourceGrid is null) return; // pendant InitializeComponent
+        var previous = (SourceGrid.SelectedItem as SourceItem)?.Handle;
+        int version = ++_sourcesVersion;
         _sources.Clear();
-        if (WindowChoice.IsChecked == true)
+
+        bool wantWindows = WindowChoice.IsChecked == true;
+        IReadOnlyList<ScreenInfo> screens = wantWindows ? [] : DesktopCatalog.Screens();
+        IReadOnlyList<WindowInfo> windows = wantWindows ? DesktopCatalog.Windows() : [];
+        foreach (var s in screens)
+            _sources.Add(new SourceItem($"Écran {s.Index}" + (s.Primary ? " (principal)" : ""), $"{s.Width} × {s.Height}", CaptureKind.Screen, s.Handle));
+        foreach (var w in windows)
+            _sources.Add(new SourceItem(w.Title, w.Minimized ? w.Process + " · réduite" : w.Process, CaptureKind.Window, w.Handle));
+        SourceGrid.SelectedItem = _sources.FirstOrDefault(s => s.Handle == previous) ?? _sources.FirstOrDefault();
+        UpdateDeviceState();
+
+        var items = _sources.ToList();
+        _ = Task.Run(() =>
         {
-            foreach (var w in DesktopCatalog.Windows())
-                _sources.Add(new SourceItem(string.IsNullOrEmpty(w.Process) ? w.Title : $"{w.Title} — {w.Process}", CaptureKind.Window, w.Handle));
-        }
-        else
-        {
-            foreach (var s in DesktopCatalog.Screens())
-                _sources.Add(new SourceItem($"Écran {s.Index} — {s.Width} × {s.Height}" + (s.Primary ? " (principal)" : ""), CaptureKind.Screen, s.Handle));
-        }
-        SourceBox.SelectedItem = (keepSelection ? _sources.FirstOrDefault(s => s.Handle == previous) : null) ?? _sources.FirstOrDefault();
+            foreach (var item in items)
+            {
+                if (version != _sourcesVersion) return;
+                var pixels = item.Kind == CaptureKind.Screen
+                    ? screens.FirstOrDefault(s => s.Handle == item.Handle) is { } screen ? Thumbnails.OfScreen(screen, ThumbWidth, ThumbHeight) : null
+                    : Thumbnails.OfWindow(item.Handle, ThumbWidth, ThumbHeight);
+                if (pixels is null) continue;
+                DispatcherQueue.TryEnqueue(async () =>
+                {
+                    if (version != _sourcesVersion) return;
+                    using var bitmap = SoftwareBitmap.CreateCopyFromBuffer(pixels.Bgra.AsBuffer(), BitmapPixelFormat.Bgra8,
+                        pixels.Width, pixels.Height, BitmapAlphaMode.Premultiplied);
+                    var source = new SoftwareBitmapSource();
+                    await source.SetBitmapAsync(bitmap);
+                    item.Thumbnail = source;
+                });
+            }
+        });
     }
 
     // ------------------------------------------------------------------ réglages
 
-    private void OnOptionChanged(object sender, RoutedEventArgs e)
+    private void OnOpenSettings(object sender, RoutedEventArgs e)
     {
-        if (_loading) return;
-        _settings.MaxHeight = int.Parse((string)((ComboBoxItem)QualityBox.SelectedItem).Tag);
-        _settings.Fps = int.Parse((string)((ComboBoxItem)FpsBox.SelectedItem).Tag);
+        MainView.Visibility = Visibility.Collapsed;
+        SettingsView.Visibility = Visibility.Visible;
+    }
+
+    private void OnCloseSettings(object sender, RoutedEventArgs e)
+    {
+        SettingsView.Visibility = Visibility.Collapsed;
+        MainView.Visibility = Visibility.Visible;
+    }
+
+    private void OnQualityChecked(object sender, RoutedEventArgs e) =>
+        SaveSetting(() => _settings.MaxHeight = int.Parse((string)((RadioButton)sender).Tag));
+
+    private void OnFpsChecked(object sender, RoutedEventArgs e) =>
+        SaveSetting(() => _settings.Fps = int.Parse((string)((RadioButton)sender).Tag));
+
+    private void OnSwitchToggled(object sender, RoutedEventArgs e) => SaveSetting(() =>
+    {
         _settings.Audio = AudioSwitch.IsOn;
         _settings.Cursor = CursorSwitch.IsOn;
+    });
+
+    private void OnStartupToggled(object sender, RoutedEventArgs e)
+    {
+        if (_loading) return;
+        try { Startup.Set(StartupSwitch.IsOn); }
+        catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
+        {
+            _loading = true;
+            StartupSwitch.IsOn = Startup.IsEnabled;
+            _loading = false;
+        }
+    }
+
+    private void SaveSetting(Action change)
+    {
+        if (_loading) return;
+        change();
         _settings.Save();
     }
 
@@ -388,14 +483,9 @@ public sealed partial class PanelWindow : Window
     public async Task StartSharingAsync()
     {
         if (IsSharing || _busy) return;
-        if (SelectedDevice is not { Paired: true } item)
+        if (SelectedDevice is not { Paired: true } item || SourceGrid.SelectedItem is not SourceItem source)
         {
             ShowPanel();
-            return;
-        }
-        if (SourceBox.SelectedItem is not SourceItem source)
-        {
-            Show(InfoBarSeverity.Warning, "Rien à partager", "Choisir un écran ou une fenêtre.");
             return;
         }
         var credentials = new Credentials().Load(item.Device.DeviceId);
@@ -440,7 +530,7 @@ public sealed partial class PanelWindow : Window
 
         ShareIcon.Glyph = "";
         SetShareText("Arrêter le partage");
-        DeviceBox.IsEnabled = SearchButton.IsEnabled = ShowAddressButton.IsEnabled = SourceBox.IsEnabled = ScreenChoice.IsEnabled = WindowChoice.IsEnabled = false;
+        SetChoicesEnabled(false);
         ShowSharingState();
         _clock.Start();
         StateChanged?.Invoke();
@@ -461,15 +551,15 @@ public sealed partial class PanelWindow : Window
         await mirroring.DisposeAsync();
         _mirroring = null;
         ShareIcon.Glyph = "";
-        DeviceBox.IsEnabled = SearchButton.IsEnabled = ShowAddressButton.IsEnabled = SourceBox.IsEnabled = ScreenChoice.IsEnabled = WindowChoice.IsEnabled = true;
+        SetChoicesEnabled(true);
         StateText.Text = "Prêt";
-        UpdateDeviceState();
         StateChanged?.Invoke();
+        RefreshSources();
 
         switch (end.Reason)
         {
             case "disconnected":
-                Show(InfoBarSeverity.Informational, "Partage terminé", "Le téléviseur a mis fin au partage (veille, extinction ou autre source).");
+                Show(InfoBarSeverity.Informational, "Partage terminé", "L'appareil a mis fin au partage (veille, extinction ou autre source).");
                 break;
             case "source_closed":
                 Show(InfoBarSeverity.Informational, "Partage terminé", "La fenêtre partagée a été fermée.");
@@ -481,6 +571,12 @@ public sealed partial class PanelWindow : Window
                 Show(InfoBarSeverity.Error, "Partage interrompu", end.Message ?? "La capture a échoué.");
                 break;
         }
+    }
+
+    private void SetChoicesEnabled(bool enabled)
+    {
+        DeviceBox.IsEnabled = SearchButton.IsEnabled = ShowAddressButton.IsEnabled = enabled;
+        SourceGrid.IsEnabled = ScreenChoice.IsEnabled = WindowChoice.IsEnabled = enabled;
     }
 
     private void ShowSharingState()
@@ -502,7 +598,7 @@ public sealed partial class PanelWindow : Window
     private void Busy(bool busy)
     {
         _busy = busy;
-        ShareButton.IsEnabled = !busy && (IsSharing || SelectedDevice is { Paired: true });
+        ShareButton.IsEnabled = IsSharing ? !busy : CanShare;
         PairButton.IsEnabled = !busy;
     }
 

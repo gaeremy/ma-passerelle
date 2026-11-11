@@ -16,8 +16,8 @@ public sealed class AppSettings
     public string? DeviceAddress { get; set; }
     public int DevicePort { get; set; } = Engine.Devices.DefaultPort;
 
-    /// <summary>Hauteur maximale : 0 = automatique, 720, 1080 ou 2160.</summary>
-    public int MaxHeight { get; set; }
+    /// <summary>Hauteur maximale de l'image : 720, 1080 (recommandé) ou 2160.</summary>
+    public int MaxHeight { get; set; } = 1080;
     public int Fps { get; set; } = 30;
     public bool Audio { get; set; } = true;
     public bool Cursor { get; set; } = true;
@@ -26,8 +26,11 @@ public sealed class AppSettings
     {
         try
         {
-            if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) ?? new();
+            if (File.Exists(FilePath) && JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(FilePath)) is { } settings)
+            {
+                if (settings.MaxHeight is not (720 or 2160)) settings.MaxHeight = 1080; // ancien « automatique » (0)
+                return settings;
+            }
         }
         catch (Exception ex) when (ex is IOException or JsonException or UnauthorizedAccessException) { }
         return new();
