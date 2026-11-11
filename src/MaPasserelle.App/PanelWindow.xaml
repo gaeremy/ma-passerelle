@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="MaPasserelle.App.PanelWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    Title="Ma Passerelle">
+
+    <Grid x:Name="Root" Padding="20,18,20,14" RowSpacing="14">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- En-tête : icône, nom, état. -->
+        <Grid ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Image Source="ms-appx:///Assets/ma-passerelle-64.png" Width="36" Height="36" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+                <TextBlock Text="Ma Passerelle" Style="{StaticResource SubtitleTextBlockStyle}" />
+                <TextBlock x:Name="StateText" Text="Prêt" Style="{StaticResource CaptionTextBlockStyle}"
+                           Foreground="{ThemeResource TextFillColorSecondaryBrush}" TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+            <Button x:Name="HideButton" Grid.Column="2" Click="OnHide" Background="Transparent" BorderThickness="0"
+                    Padding="8" VerticalAlignment="Top" ToolTipService.ToolTip="Fermer le panneau"
+                    AutomationProperties.Name="Fermer le panneau">
+                <FontIcon Glyph="&#xE711;" FontSize="12" />
+            </Button>
+        </Grid>
+
+        <!-- Réglages : défilent si « Qualité et options » est déplié ; l'action reste en bas. -->
+        <ScrollViewer Grid.Row="1" Margin="-20,0" Padding="20,0" VerticalScrollBarVisibility="Auto">
+            <StackPanel Spacing="14">
+
+                <!-- Téléviseur. -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Téléviseur" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <Grid ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <ComboBox x:Name="DeviceBox" HorizontalAlignment="Stretch" PlaceholderText="Recherche des téléviseurs…"
+                                  DisplayMemberPath="Label" SelectionChanged="OnDeviceChanged"
+                                  AutomationProperties.Name="Téléviseur" />
+                        <Button x:Name="SearchButton" Grid.Column="1" Click="OnSearch" ToolTipService.ToolTip="Chercher à nouveau"
+                                AutomationProperties.Name="Chercher à nouveau">
+                            <FontIcon Glyph="&#xE72C;" FontSize="14" />
+                        </Button>
+                    </Grid>
+                    <HyperlinkButton x:Name="ShowAddressButton" Content="Se connecter par adresse IP" Padding="0,2" Click="OnShowAddress" />
+                    <Grid x:Name="AddressPanel" Visibility="Collapsed" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="AddressBox" PlaceholderText="Exemple : 192.168.1.20" KeyDown="OnAddressKey"
+                                 AutomationProperties.Name="Adresse IP du téléviseur" />
+                        <Button Grid.Column="1" Content="Ajouter" Click="OnAddAddress" />
+                    </Grid>
+
+                    <!-- Jumelage : une seule fois par téléviseur. -->
+                    <Border x:Name="PairPanel" Visibility="Collapsed" Padding="12" CornerRadius="6"
+                            Background="{ThemeResource PasserelleSoftBrush}">
+                        <StackPanel Spacing="8">
+                            <TextBlock x:Name="PairText" TextWrapping="Wrap"
+                                       Text="Ce téléviseur n'est pas encore jumelé. Le jumelage se fait une seule fois." />
+                            <Button x:Name="PairButton" Content="Jumeler" Click="OnPair" />
+                            <Grid x:Name="PinPanel" Visibility="Collapsed" ColumnSpacing="8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <TextBox x:Name="PinBox" PlaceholderText="Code affiché sur le téléviseur" MaxLength="8"
+                                         InputScope="Number" KeyDown="OnPinKey" AutomationProperties.Name="Code de jumelage" />
+                                <Button Grid.Column="1" Content="Valider" Style="{StaticResource AccentButtonStyle}" Click="OnPinConfirm" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+
+                <!-- Quoi partager. -->
+                <StackPanel Spacing="6">
+                    <TextBlock Text="Partager" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                    <StackPanel Orientation="Horizontal" Spacing="16">
+                        <RadioButton x:Name="ScreenChoice" Content="Un écran" GroupName="Kind" IsChecked="True" Checked="OnKindChanged" MinWidth="0" />
+                        <RadioButton x:Name="WindowChoice" Content="Une fenêtre" GroupName="Kind" Checked="OnKindChanged" MinWidth="0" />
+                    </StackPanel>
+                    <ComboBox x:Name="SourceBox" HorizontalAlignment="Stretch" DisplayMemberPath="Label" DropDownOpened="OnSourceOpened"
+                              AutomationProperties.Name="Écran ou fenêtre à partager" />
+                </StackPanel>
+
+                <!-- Qualité, repliée par défaut. -->
+                <Expander HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch" Header="Qualité et options">
+                    <StackPanel Spacing="10">
+                        <ComboBox x:Name="QualityBox" Header="Image" HorizontalAlignment="Stretch" SelectionChanged="OnOptionChanged">
+                            <ComboBoxItem Content="Automatique (1080p)" Tag="0" />
+                            <ComboBoxItem Content="720p, pour un réseau chargé" Tag="720" />
+                            <ComboBoxItem Content="1080p (Full HD)" Tag="1080" />
+                            <ComboBoxItem Content="4K, si l'écran le permet" Tag="2160" />
+                        </ComboBox>
+                        <ComboBox x:Name="FpsBox" Header="Fluidité" HorizontalAlignment="Stretch" SelectionChanged="OnOptionChanged">
+                            <ComboBoxItem Content="30 images par seconde" Tag="30" />
+                            <ComboBoxItem Content="60 images par seconde (vidéo, animations)" Tag="60" />
+                        </ComboBox>
+                        <ToggleSwitch x:Name="AudioSwitch" Header="Son du PC sur le téléviseur" Toggled="OnOptionChanged" />
+                        <ToggleSwitch x:Name="CursorSwitch" Header="Pointeur de la souris visible" Toggled="OnOptionChanged" />
+                        <TextBlock Text="Les changements s'appliquent au prochain partage." Style="{StaticResource CaptionTextBlockStyle}"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}" />
+                    </StackPanel>
+                </Expander>
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- Action principale. -->
+        <StackPanel Grid.Row="2" Spacing="8">
+            <InfoBar x:Name="Message" IsClosable="True" IsOpen="False" />
+            <Button x:Name="ShareButton" Style="{StaticResource AccentButtonStyle}" HorizontalAlignment="Stretch"
+                    Padding="12,10" Click="OnShare" IsEnabled="False">
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <FontIcon x:Name="ShareIcon" Glyph="&#xEC15;" FontSize="16" />
+                    <TextBlock x:Name="ShareText" Text="Partager" />
+                </StackPanel>
+            </Button>
+        </StackPanel>
+
+        <!-- Pied : version et sortie. -->
+        <Grid Grid.Row="3">
+            <TextBlock x:Name="VersionText" VerticalAlignment="Center" Style="{StaticResource CaptionTextBlockStyle}"
+                       Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+            <HyperlinkButton HorizontalAlignment="Right" Content="Quitter Ma Passerelle" Padding="4,2" Click="OnQuit" />
+        </Grid>
+    </Grid>
+</Window>

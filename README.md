@@ -11,7 +11,16 @@ pointeur de la souris compris.
 L'encodage vidéo utilise la carte graphique quand elle le permet (Intel, NVIDIA ou AMD),
 sans réglage.
 
-## Utilisation
+## Deux façons de s'en servir
+
+- **L'application** (`MaPasserelle.exe`) se loge dans la zone de notification, près de l'horloge.
+  Un clic sur son icône ouvre un panneau : choisir le téléviseur, l'écran ou la fenêtre, puis
+  « Partager ». Le jumelage se fait depuis ce même panneau, une seule fois par téléviseur.
+  Un clic droit sur l'icône permet de partager, d'arrêter ou de quitter.
+- **La ligne de commande** (`mapasserelle.exe`), décrite ci-dessous, sert aux autres programmes
+  (Mon Estrade) et aux essais.
+
+## Utilisation en ligne de commande
 
 ```
 mapasserelle discover
