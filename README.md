@@ -29,14 +29,14 @@ chaque événement sort alors sur une ligne JSON. Le contrat complet est dans
 
 ## Compiler
 
-Il faut Windows 10 ou 11 (x64 ou ARM64) et le SDK .NET 8.
+Il faut Windows 10 ou 11 (x64 ou ARM64) et le SDK .NET 10.
 
 ```
 dotnet build src/MaPasserelle/MaPasserelle.csproj -c Release -p:Platform=x64
 dotnet test vendor/WinPlay/tests/WinPlay.Core.Tests/WinPlay.Core.Tests.csproj -c Release
 ```
 
-L'exécutable est produit dans `src/MaPasserelle/bin/x64/Release/net8.0-windows10.0.22621.0/`.
+L'exécutable est produit dans `src/MaPasserelle/bin/x64/Release/net10.0-windows10.0.22621.0/win-x64/`. Il est autonome : .NET y est embarqué, rien à installer sur le PC qui le lance.
 
 ## Organisation du dépôt
 

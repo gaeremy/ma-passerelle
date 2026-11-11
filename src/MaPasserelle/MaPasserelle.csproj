@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0-windows10.0.22621.0</TargetFramework>
+    <TargetFramework>net10.0-windows10.0.22621.0</TargetFramework>
     <Platforms>x64;ARM64</Platforms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -10,6 +10,11 @@
     <RootNamespace>MaPasserelle</RootNamespace>
     <AssemblyName>mapasserelle</AssemblyName>
     <ApplicationIcon>..\..\assets\icon\ma-passerelle.ico</ApplicationIcon>
+    <!-- Autonome : .NET est embarqué, rien à installer sur le PC. Pas d'élagage (trimming) :
+         l'interop COM/WinRT de la capture ne le supporte pas. -->
+    <RuntimeIdentifier Condition="'$(Platform)' == 'ARM64'">win-arm64</RuntimeIdentifier>
+    <RuntimeIdentifier Condition="'$(Platform)' != 'ARM64'">win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
   </PropertyGroup>
 
   <ItemGroup>

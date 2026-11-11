@@ -8,7 +8,7 @@ Ce dossier est une copie de [WinPlay](https://github.com/dineshdhotrad/WinPlay),
 | Version | 0.1.1 |
 | Branche | `master` |
 | Date de reprise | 9 novembre 2026 (archive zip de la branche ; le commit exact n'a pas été noté) |
-| Modifications | aucune dans ce dossier |
+| Modifications | aucune dans le code ; seule la version de .NET visée par les deux fichiers `.csproj` passe de 8 à 10 (11 novembre 2026, fin du support de .NET 8) |
 
 ## Ce qui est repris
 
