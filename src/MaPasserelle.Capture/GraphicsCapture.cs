@@ -28,6 +28,9 @@ internal sealed class GraphicsCapture : IFrameCapture
     private readonly GraphicsCaptureItem _item;
     private readonly Direct3D11CaptureFramePool _pool;
     private readonly GraphicsCaptureSession _session;
+    private readonly nint _handle;
+    private readonly bool _isWindow;
+    private long _nextCheckMs;
     private volatile bool _closed;
 
     public ID3D11Device Device { get; }
@@ -42,6 +45,8 @@ internal sealed class GraphicsCapture : IFrameCapture
             DeviceCreationFlags.BgraSupport | DeviceCreationFlags.VideoSupport, levels,
             out ID3D11Device? device).CheckError();
         Device = device!;
+        _handle = handle;
+        _isWindow = isWindow;
         _context = Device.ImmediateContext;
 
         using (var dxgiDevice = Device.QueryInterface<IDXGIDevice>())
@@ -72,6 +77,15 @@ internal sealed class GraphicsCapture : IFrameCapture
 
     public CaptureResult TryCaptureInto(ID3D11Texture2D dest, int timeoutMs)
     {
+        // L'événement Closed n'est livré qu'à un fil doté d'une boucle de messages, ce qu'un
+        // programme console n'a pas : on vérifie donc nous-mêmes, quatre fois par seconde,
+        // que la fenêtre ou l'écran existe encore.
+        long now = Environment.TickCount64;
+        if (now >= _nextCheckMs)
+        {
+            _nextCheckMs = now + 250;
+            if (!(_isWindow ? DesktopCatalog.IsWindow(_handle) : DesktopCatalog.IsScreen(_handle))) _closed = true;
+        }
         if (_closed) return CaptureResult.Ended;
 
         // On ne garde que l'image la plus récente.

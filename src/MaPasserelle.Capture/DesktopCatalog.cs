@@ -69,6 +69,13 @@ public static class DesktopCatalog
 
     public static bool IsWindow(nint handle) => IsWindowNative(handle);
 
+    /// <summary>Vrai tant que l'écran est branché (un écran débranché invalide son handle).</summary>
+    public static bool IsScreen(nint handle)
+    {
+        var info = new MonitorInfoEx { Size = Marshal.SizeOf<MonitorInfoEx>() };
+        return GetMonitorInfo(handle, ref info);
+    }
+
     private delegate bool MonitorEnumProc(nint monitor, nint hdc, nint rect, nint data);
     private delegate bool WindowEnumProc(nint window, nint data);
 
