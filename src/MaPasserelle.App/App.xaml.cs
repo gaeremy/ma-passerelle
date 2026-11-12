@@ -67,8 +67,20 @@ public partial class App : Application
         }) { IsBackground = true, Name = "MaPasserelle-Signal" };
         listener.Start();
 
-        // Lancé au démarrage de Windows (--tray) : rester discret dans la zone de notification.
-        if (!Environment.GetCommandLineArgs().Contains("--tray")) _panel.ShowPanel();
+        // Lancé au démarrage de Windows : rester discret dans la zone de notification.
+        if (!LaunchedAtStartup()) _panel.ShowPanel();
+    }
+
+    /// <summary>Vrai au démarrage de Windows : --tray (version autonome) ou tâche de démarrage (paquet).</summary>
+    private static bool LaunchedAtStartup()
+    {
+        if (Environment.GetCommandLineArgs().Contains(Startup.TrayArgument)) return true;
+        try
+        {
+            return Microsoft.Windows.AppLifecycle.AppInstance.GetCurrent().GetActivatedEventArgs().Kind
+                == Microsoft.Windows.AppLifecycle.ExtendedActivationKind.StartupTask;
+        }
+        catch (Exception) { return false; }
     }
 
     private void CreateTray()

@@ -1,0 +1,92 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Package
+  xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+  xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+  xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
+  xmlns:desktop2="http://schemas.microsoft.com/appx/manifest/desktop/windows10/2"
+  xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
+  xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+  IgnorableNamespaces="uap uap5 desktop2 desktop4 rescap">
+
+  <!-- Identité PROVISOIRE : à remplacer par celle que Partner Center attribue à la réservation
+       du nom « Ma Passerelle » (même compte que Mon Estrade). La version est reportée par build.ps1. -->
+  <Identity Name="GR14.MaPasserelle" Publisher="CN=9708DD54-8A9A-4D80-AC7B-5B976BB50B0F" Version="0.2.0.0" />
+
+  <Properties>
+    <DisplayName>Ma Passerelle</DisplayName>
+    <PublisherDisplayName>GR14</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.19041.0" MaxVersionTested="10.0.26100.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="fr-CH"/>
+  </Resources>
+
+  <Applications>
+    <!-- L'application : icône près de l'horloge et panneau de partage. -->
+    <Application Id="App" Executable="$targetnametoken$.exe" EntryPoint="$targetentrypoint$">
+      <uap:VisualElements
+        DisplayName="Ma Passerelle"
+        Description="Partage d'écran compatible Apple TV"
+        BackgroundColor="#F8F7F2"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" />
+        <uap:SplashScreen Image="Assets\SplashScreen.png" />
+      </uap:VisualElements>
+      <Extensions>
+        <!-- Démarrer avec Windows : désactivée à l'installation, activée depuis les Réglages. -->
+        <uap5:Extension Category="windows.startupTask">
+          <uap5:StartupTask TaskId="MaPasserelleStartup" Enabled="false" DisplayName="Ma Passerelle" />
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+
+    <!-- La ligne de commande, pour Mon Estrade et les essais : « mapasserelle » dans une invite
+         de commandes, sans entrée dans le menu Démarrer. -->
+    <Application Id="Cli" Executable="mapasserelle.exe" EntryPoint="Windows.FullTrustApplication"
+                 desktop4:Subsystem="console" desktop4:SupportsMultipleInstances="true">
+      <uap:VisualElements
+        DisplayName="Ma Passerelle (ligne de commande)"
+        Description="Pilotage de Ma Passerelle par d'autres programmes"
+        BackgroundColor="#F8F7F2"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png"
+        AppListEntry="none" />
+      <Extensions>
+        <uap5:Extension Category="windows.appExecutionAlias">
+          <uap5:AppExecutionAlias desktop4:Subsystem="console">
+            <uap5:ExecutionAlias Alias="mapasserelle.exe" />
+          </uap5:AppExecutionAlias>
+        </uap5:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+
+  <!-- Pare-feu : la recherche des appareils (mDNS) et les canaux de retour du téléviseur (horloge,
+       événements) arrivent de l'extérieur. Règles posées à l'installation : sans elles, Windows
+       demanderait l'autorisation au premier partage, et un refus casserait tout sans explication. -->
+  <Extensions>
+    <desktop2:Extension Category="windows.firewallRules">
+      <desktop2:FirewallRules Executable="MaPasserelle.App.exe">
+        <desktop2:Rule Direction="in" IPProtocol="UDP" Profile="all" />
+        <desktop2:Rule Direction="in" IPProtocol="TCP" Profile="all" />
+      </desktop2:FirewallRules>
+    </desktop2:Extension>
+    <desktop2:Extension Category="windows.firewallRules">
+      <desktop2:FirewallRules Executable="mapasserelle.exe">
+        <desktop2:Rule Direction="in" IPProtocol="UDP" Profile="all" />
+        <desktop2:Rule Direction="in" IPProtocol="TCP" Profile="all" />
+      </desktop2:FirewallRules>
+    </desktop2:Extension>
+  </Extensions>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+</Package>

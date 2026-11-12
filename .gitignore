@@ -25,3 +25,6 @@ packages/
 Thumbs.db
 Desktop.ini
 .DS_Store
+
+# Paquets produits par build.ps1
+dist/

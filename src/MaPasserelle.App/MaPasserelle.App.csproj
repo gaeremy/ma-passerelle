@@ -8,7 +8,10 @@
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <SupportedOSPlatformVersion>10.0.19041.0</SupportedOSPlatformVersion>
     <RootNamespace>MaPasserelle.App</RootNamespace>
-    <AssemblyName>MaPasserelle</AssemblyName>
+    <!-- L'exécutable ne peut pas s'appeler MaPasserelle.exe : Windows le confondrait avec la ligne
+         de commande mapasserelle.exe (même dossier). Le nom affiché par Windows reste « Ma Passerelle ». -->
+    <AssemblyName>MaPasserelle.App</AssemblyName>
+    <AssemblyTitle>Ma Passerelle</AssemblyTitle>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\ma-passerelle.ico</ApplicationIcon>
     <Platforms>x64;ARM64</Platforms>
@@ -42,6 +45,14 @@
 
   <ItemGroup>
     <ProjectReference Include="..\MaPasserelle.Engine\MaPasserelle.Engine.csproj" />
+    <!-- La ligne de commande (mapasserelle.exe) voyage avec l'application : même dossier, même
+         runtime .NET. Les options de paquet MSIX ne concernent que l'application. -->
+    <ProjectReference Include="..\MaPasserelle\MaPasserelle.csproj"
+                      UndefineProperties="WindowsPackageType;GenerateAppxPackageOnBuild;AppxPackageDir;UapAppxPackageBuildMode;AppxBundle;AppxPackageSigningEnabled" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(WindowsPackageType)' != 'None'">
+    <ProjectCapability Include="Msix" />
   </ItemGroup>
 
 </Project>

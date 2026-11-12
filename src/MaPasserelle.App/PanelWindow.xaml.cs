@@ -100,7 +100,6 @@ public sealed partial class PanelWindow : Window
         AudioSwitch.IsOn = _settings.Audio;
         CursorSwitch.IsOn = _settings.Cursor;
         Startup.Refresh();
-        StartupSwitch.IsOn = Startup.IsEnabled;
         string version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion.Split('+')[0] ?? "";
         VersionText.Text = "Version " + version;
@@ -427,10 +426,11 @@ public sealed partial class PanelWindow : Window
 
     // ------------------------------------------------------------------ réglages
 
-    private void OnOpenSettings(object sender, RoutedEventArgs e)
+    private async void OnOpenSettings(object sender, RoutedEventArgs e)
     {
         MainView.Visibility = Visibility.Collapsed;
         SettingsView.Visibility = Visibility.Visible;
+        ShowStartupStatus(await Startup.GetAsync());
     }
 
     private void OnCloseSettings(object sender, RoutedEventArgs e)
@@ -451,16 +451,32 @@ public sealed partial class PanelWindow : Window
         _settings.Cursor = CursorSwitch.IsOn;
     });
 
-    private void OnStartupToggled(object sender, RoutedEventArgs e)
+    private async void OnStartupToggled(object sender, RoutedEventArgs e)
     {
         if (_loading) return;
-        try { Startup.Set(StartupSwitch.IsOn); }
+        Startup.Status status;
+        try { status = await Startup.SetAsync(StartupSwitch.IsOn); }
         catch (Exception ex) when (ex is UnauthorizedAccessException or System.Security.SecurityException or IOException)
         {
-            _loading = true;
-            StartupSwitch.IsOn = Startup.IsEnabled;
-            _loading = false;
+            status = await Startup.GetAsync();
         }
+        ShowStartupStatus(status);
+    }
+
+    /// <summary>Affiche l'état réel, que Windows peut imposer (désactivé par l'utilisateur ou par l'établissement).</summary>
+    private void ShowStartupStatus(Startup.Status status)
+    {
+        _loading = true;
+        StartupSwitch.IsOn = status == Startup.Status.On;
+        _loading = false;
+        StartupSwitch.IsEnabled = status is Startup.Status.On or Startup.Status.Off;
+        StartupHint.Text = status switch
+        {
+            Startup.Status.BlockedByUser => "Désactivé dans Paramètres Windows → Applications → Démarrage. Le réactiver là-bas.",
+            Startup.Status.ByPolicy => "Réglé par l'administrateur de ce PC.",
+            _ => "",
+        };
+        StartupHint.Visibility = StartupHint.Text.Length > 0 ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private void SaveSetting(Action change)

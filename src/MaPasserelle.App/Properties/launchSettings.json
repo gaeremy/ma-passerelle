@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Ma Passerelle (non empaqueté)": {
+      "commandName": "Project"
+    },
+    "Ma Passerelle (MSIX)": {
+      "commandName": "MsixPackage"
+    }
+  }
+}
