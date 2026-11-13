@@ -71,11 +71,12 @@ le panneau affiche « Recherche des appareils… » : c'est le fonctionnement no
 par le paquet (règles entrantes TCP et UDP) pour la découverte et le flux vidéo. Aucun compte requis.
 Capacité : runFullTrust (application de bureau).
 
-## Captures (store/captures, 1440×920 ou plus)
+## Captures (store/captures, 1440×920)
+Faites dans la VM Windows 10 (panneau réel, mis en page avec titre à gauche).
 1. 1-panneau — « Un clic près de l'horloge, et vous projetez »
 2. 2-fenetre — « Un écran entier ou une seule fenêtre »
 3. 3-reglages — « Qualité, fluidité, son et pointeur »
-4. 4-jumelage — « Jumelage par code, une seule fois »
+4. 4-jumelage — « Jumelage par code, une seule fois » (panneau juste après le jumelage, bandeau « Jumelé »)
 (Captures du PC seulement. Ne pas montrer le téléviseur Apple ni son interface.)
 
 ## Nouveautés de la version 0.2

@@ -8,7 +8,7 @@ Ce dossier est une copie de [WinPlay](https://github.com/dineshdhotrad/WinPlay),
 | Version | 0.1.1 |
 | Branche | `master` |
 | Date de reprise | 9 novembre 2026 (archive zip de la branche ; le commit exact n'a pas été noté) |
-| Modifications | aucune dans le code ; seule la version de .NET visée par les deux fichiers `.csproj` passe de 8 à 10 (11 novembre 2026, fin du support de .NET 8) |
+| Modifications | la version de .NET visée par les deux fichiers `.csproj` passe de 8 à 10 (11 novembre 2026, fin du support de .NET 8) ; deux fichiers ajoutés le 14 novembre 2026, aucun fichier repris n'est modifié (voir ci-dessous) |
 
 ## Ce qui est repris
 
@@ -41,3 +41,14 @@ l'installeur, la documentation et les images de WinPlay.
 
 Remplacer les deux dossiers repris par ceux de la nouvelle version, relancer les tests,
 puis mettre à jour ce fichier. Toute modification locale doit être listée ici, avec sa date.
+
+## Fichiers ajoutés
+
+- `src/WinPlay.Core/ChaCha20Poly1305.cs` (14 novembre 2026). Sous Windows 10, CNG n'offre pas
+  ChaCha20-Poly1305 : `System.Security.Cryptography.ChaCha20Poly1305` y lève « Algorithm 'ChaCha20Poly1305'
+  is not supported on this platform », et le jumelage échoue. Ce type de même interface, dans l'espace de noms
+  `WinPlay.Core`, a priorité sur celui de .NET dans tout WinPlay.Core. Il utilise l'implémentation de Windows
+  quand elle existe, sinon BouncyCastle (déjà une dépendance). Vérifié dans la VM Windows 10 : jumelage,
+  pair-verify, FairPlay et canal de commande chiffré.
+- `tests/WinPlay.Core.Tests/ChaCha20Poly1305FallbackTests.cs` : vecteur de la RFC 8439 sur les deux chemins,
+  accord natif/BouncyCastle, rejet d'un tag modifié.

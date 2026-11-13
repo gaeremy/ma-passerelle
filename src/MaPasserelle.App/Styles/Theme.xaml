@@ -21,6 +21,9 @@
             <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#FFFFFF" />
             <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#B3FFFFFF" />
             <SolidColorBrush x:Key="PasserelleSoftBrush" Color="#1FCE544C" />
+            <!-- Bandeau « succès » : fond neutre plutôt que le vert par défaut, coche verte adoucie. -->
+            <SolidColorBrush x:Key="InfoBarSuccessSeverityBackgroundBrush" Color="#0C000000" />
+            <SolidColorBrush x:Key="InfoBarSuccessSeverityIconBackground" Color="#FF3A9D63" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
             <Color x:Key="SystemAccentColor">#F68E87</Color>
@@ -39,6 +42,8 @@
             <SolidColorBrush x:Key="TextOnAccentFillColorPrimaryBrush" Color="#000000" />
             <SolidColorBrush x:Key="TextOnAccentFillColorSecondaryBrush" Color="#B3000000" />
             <SolidColorBrush x:Key="PasserelleSoftBrush" Color="#29F68E87" />
+            <SolidColorBrush x:Key="InfoBarSuccessSeverityBackgroundBrush" Color="#14FFFFFF" />
+            <SolidColorBrush x:Key="InfoBarSuccessSeverityIconBackground" Color="#FF8BD3A5" />
         </ResourceDictionary>
         <ResourceDictionary x:Key="HighContrast" />
     </ResourceDictionary.ThemeDictionaries>
