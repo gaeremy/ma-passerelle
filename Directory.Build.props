@@ -2,7 +2,7 @@
   <!-- Métadonnées communes aux projets propres à Ma Passerelle.
        Le code repris de WinPlay (vendor/WinPlay) garde son propre Directory.Build.props. -->
   <PropertyGroup>
-    <Version>0.2.0</Version>
+    <Version>0.2.1</Version>
     <AssemblyVersion>0.2.0.0</AssemblyVersion>
     <FileVersion>0.2.0.0</FileVersion>
     <Product>Ma Passerelle</Product>

@@ -9,7 +9,7 @@
 
   <!-- Identité PROVISOIRE : à remplacer par celle que Partner Center attribue à la réservation
        du nom « Ma Passerelle » (même compte que Mon Estrade). La version est reportée par build.ps1. -->
-  <Identity Name="GR14.MaPasserelle" Publisher="CN=9708DD54-8A9A-4D80-AC7B-5B976BB50B0F" Version="0.2.0.0" />
+  <Identity Name="GR14.MaPasserelle" Publisher="CN=9708DD54-8A9A-4D80-AC7B-5B976BB50B0F" Version="0.2.1.0" />
 
   <Properties>
     <DisplayName>Ma Passerelle</DisplayName>
