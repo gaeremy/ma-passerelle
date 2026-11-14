@@ -262,6 +262,16 @@
                     <TextBlock Text="Les réglages d'image et de son s'appliquent au prochain partage."
                                Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
                                Foreground="{ThemeResource TextFillColorTertiaryBrush}" />
+
+                    <!-- Mention légale demandée par la GPL v3 (section 0, « Appropriate Legal Notices »). -->
+                    <StackPanel Spacing="4" Margin="0,6,0,12">
+                        <TextBlock Text="À propos" Style="{StaticResource BodyStrongTextBlockStyle}" />
+                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" TextWrapping="Wrap"
+                                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                   Text="Logiciel libre sous licence GNU GPL version 3 ou ultérieure, fourni sans aucune garantie. Basé sur WinPlay de Dinesh Dhotrad et doubletake." />
+                        <HyperlinkButton Content="Code source, licence et crédits" Padding="0,2" Margin="0,2,0,0"
+                                         NavigateUri="https://github.com/gaeremy/ma-passerelle" />
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </Grid>

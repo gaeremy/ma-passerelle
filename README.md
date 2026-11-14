@@ -121,8 +121,9 @@ En cas de souci, le journal des erreurs est dans `%APPDATA%\MaPasserelle\erreurs
 ## Licence
 
 Ma Passerelle est distribuée sous licence [GPL-3.0-or-later](LICENSE). Elle s'appuie sur
-[WinPlay](https://github.com/dineshdhotrad/WinPlay) de Dinesh Dhotrad, sous la même licence. Les
-crédits complets sont dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[WinPlay](https://github.com/dineshdhotrad/WinPlay) de Dinesh Dhotrad, sous la même licence, qui
+reprend lui-même le travail de [doubletake](https://github.com/omarroth/doubletake) (LGPL). Merci à
+eux. Les crédits complets sont dans [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 <sub>Apple TV et AirPlay sont des marques d'Apple Inc. Ma Passerelle est un logiciel indépendant, ni
 affilié à Apple, ni approuvé par Apple, et ne contient aucun code ni aucune clé d'Apple.</sub>
