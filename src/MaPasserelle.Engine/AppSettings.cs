@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0-or-later
 using System.Text.Json;
 
-namespace MaPasserelle.App;
+namespace MaPasserelle.Engine;
 
-/// <summary>Réglages mémorisés entre deux lancements (%APPDATA%\MaPasserelle\reglages.json).</summary>
+/// <summary>
+/// Réglages mémorisés entre deux lancements (%APPDATA%\MaPasserelle\reglages.json). Choisis dans l'application,
+/// ils servent aussi de valeurs par défaut à la ligne de commande (mirror), donc à Mon Estrade.
+/// </summary>
 public sealed class AppSettings
 {
     private static readonly string FilePath = Path.Combine(
@@ -14,7 +17,7 @@ public sealed class AppSettings
     public string? DeviceId { get; set; }
     public string? DeviceName { get; set; }
     public string? DeviceAddress { get; set; }
-    public int DevicePort { get; set; } = Engine.Devices.DefaultPort;
+    public int DevicePort { get; set; } = Devices.DefaultPort;
 
     /// <summary>Hauteur maximale de l'image : 720, 1080 (recommandé) ou 2160.</summary>
     public int MaxHeight { get; set; } = 1080;

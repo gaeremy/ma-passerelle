@@ -135,10 +135,13 @@ async Task<int> UnpairAsync()
 async Task<int> MirrorAsync()
 {
     if (GetOpt("--to") is not { } target) return Fail(ExitUsage, "usage", "mirror demande --to <nom, id ou adresse IP>");
-    int fps = int.TryParse(GetOpt("--fps"), out int f) ? Math.Clamp(f, 5, 60) : 30; // « auto » = 30
+    // Sans option, les réglages choisis dans l'application Ma Passerelle s'appliquent.
+    var saved = AppSettings.Load();
+    int fps = int.TryParse(GetOpt("--fps"), out int f) ? Math.Clamp(f, 5, 60) : saved.Fps;
     int maxHeight;
-    switch ((GetOpt("--resolution") ?? "auto").ToLowerInvariant())
+    switch ((GetOpt("--resolution") ?? "saved").ToLowerInvariant())
     {
+        case "saved": maxHeight = saved.MaxHeight; break;
         case "auto": maxHeight = 0; break;
         case "720" or "720p": maxHeight = 720; break;
         case "1080" or "1080p": maxHeight = 1080; break;
@@ -154,7 +157,8 @@ async Task<int> MirrorAsync()
     }
 
     // Ce qu'on partage : un écran (le principal par défaut) ou une fenêtre.
-    var options = new MirrorOptions { MaxHeight = maxHeight, Fps = fps, Cursor = !HasFlag("--no-cursor"), Backend = backend };
+    bool cursor = HasFlag("--no-cursor") ? false : HasFlag("--cursor") || saved.Cursor;
+    var options = new MirrorOptions { MaxHeight = maxHeight, Fps = fps, Cursor = cursor, Backend = backend };
     string sourceKind = "screen", sourceName;
     if (GetOpt("--window") is not null || GetOpt("--window-title") is not null)
     {
@@ -187,7 +191,7 @@ async Task<int> MirrorAsync()
     }
     int mbps = int.TryParse(GetOpt("--mbps"), out int mb) ? Math.Clamp(mb, 0, 50) : 0;
     double? minutes = double.TryParse(GetOpt("--minutes"), System.Globalization.CultureInfo.InvariantCulture, out double m) ? m : null;
-    bool withAudio = !HasFlag("--no-audio");
+    bool withAudio = HasFlag("--no-audio") ? false : HasFlag("--audio") || saved.Audio;
 
     var device = await FindAsync(target);
     if (device is null || Devices.Ipv4(device) is not { } address)
@@ -289,7 +293,8 @@ int Help()
                                                         partage ; taper « stop » ou « status »
               --screen N | --window ID | --window-title TEXTE     quoi partager (défaut : écran principal)
               --resolution auto|720|1080|2160           taille maximale de l'image (auto = 1080)
-              --fps 30|60   --mbps N   --no-audio   --no-cursor
+              --fps 30|60   --mbps N   --audio | --no-audio   --cursor | --no-cursor
+              (sans ces options : les réglages choisis dans l'application Ma Passerelle)
               --minutes M   --no-stdin   --backend graphics|duplication
           mapasserelle version
 

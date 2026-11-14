@@ -57,7 +57,12 @@
                         <FontIcon Glyph="&#xE72C;" FontSize="14" />
                     </Button>
                 </Grid>
-                <HyperlinkButton x:Name="ShowAddressButton" Content="Se connecter par adresse IP" Padding="0,2" Click="OnShowAddress" />
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <HyperlinkButton x:Name="ShowAddressButton" Content="Se connecter par adresse IP" Padding="0,2" Click="OnShowAddress" />
+                    <!-- Écran Miracast : Windows le gère lui-même (comme Windows + K). -->
+                    <HyperlinkButton Content="Écran Miracast" Padding="0,2" NavigateUri="ms-settings-connectabledevices:devicediscovery"
+                                     ToolTipService.ToolTip="Téléviseur ou boîtier compatible Miracast : connexion par Windows (Windows + K)" />
+                </StackPanel>
                 <Grid x:Name="AddressPanel" Visibility="Collapsed" ColumnSpacing="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />

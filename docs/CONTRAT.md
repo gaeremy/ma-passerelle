@@ -118,15 +118,17 @@ la redimensionner ou la déplacer pendant le partage. Si on la ferme, le partage
 (`reason` = `source_closed`). Réduite dans la barre des tâches, elle reste figée sur sa
 dernière image.
 
-Réglages :
+Réglages. Sans option, ce sont ceux choisis dans l'application Ma Passerelle (Réglages du panneau,
+enregistrés dans `%APPDATA%\MaPasserelle\reglages.json`). Le programme appelant n'a donc pas à les
+proposer lui-même : un seul endroit pour les régler.
 
 | Option | Défaut | Sens |
 |---|---|---|
-| `--resolution R` | `auto` | taille maximale de l'image : `720`, `1080`, `2160` (4K) ou `auto` (= 1080) |
-| `--fps N` | 30 | images par seconde : 30 ou 60 (toute valeur de 5 à 60 est acceptée) |
+| `--resolution R` | réglage de l'application (1080) | taille maximale de l'image : `720`, `1080`, `2160` (4K) ou `auto` (= 1080) |
+| `--fps N` | réglage de l'application (30) | images par seconde : 30 ou 60 (toute valeur de 5 à 60 est acceptée) |
 | `--mbps N` | 0 | débit vidéo en Mbit/s ; 0 = choisi automatiquement |
-| `--no-audio` | | n'envoie pas le son du PC |
-| `--no-cursor` | | n'affiche pas le pointeur de la souris |
+| `--audio`, `--no-audio` | réglage de l'application (son) | envoie ou non le son du PC |
+| `--cursor`, `--no-cursor` | réglage de l'application (pointeur) | affiche ou non le pointeur de la souris |
 | `--backend B` | `graphics` | méthode de capture ; `duplication` est l'ancienne méthode, pour un écran seulement et sans pointeur, à essayer si l'image reste noire |
 | `--minutes M` | | arrêt automatique après `M` minutes, vérifié toutes les 10 secondes |
 | `--no-stdin` | | n'écoute pas l'entrée standard (arrêt par `--minutes` ou Ctrl+C) |
