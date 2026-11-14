@@ -532,7 +532,7 @@ public sealed partial class PanelWindow : Window
         {
             await mirroring.DisposeAsync();
             StateText.Text = "Prêt";
-            Show(InfoBarSeverity.Error, "Connexion impossible", $"{item.Device.Name} ne répond pas. Vérifier qu'il est allumé et sur le même réseau. ({ex.Message})");
+            Show(InfoBarSeverity.Error, "Connexion impossible", Problems.Connection(ex, item.Device.Name));
             return;
         }
         finally { Busy(false); }

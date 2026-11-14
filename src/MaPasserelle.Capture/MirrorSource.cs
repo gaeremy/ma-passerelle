@@ -96,6 +96,7 @@ public sealed class MirrorSource : IH264VideoSource
             int bitrate = _options.BitrateMbps > 0 ? _options.BitrateMbps * 1_000_000 : AutoBitrate(Width, Height, fps);
 
             converter = new GpuColorConverter(capture.Device, srcW, srcH, Width, Height, fps);
+            if (converter.UsesCpu) Diagnostic?.Invoke("couleurs converties par le processeur : le processeur vidéo du pilote graphique donne des couleurs fausses");
 
             // Prefer the GPU hardware encoder (NVENC/QuickSync/AMF/Adreno); fall back to
             // the software MFT only if no hardware encoder is present.

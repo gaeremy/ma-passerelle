@@ -22,6 +22,7 @@ DesktopCatalog.UseRealPixels();
 string command = args.Length > 0 && !args[0].StartsWith('-') ? args[0] : "help";
 bool json = HasFlag("--json");
 var outLock = new object();
+string? deviceLabel = null; // nom de l'appareil une fois trouvé, pour les messages d'erreur
 var jsonOptions = new JsonSerializerOptions { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
 try
@@ -41,7 +42,7 @@ try
 }
 catch (Exception ex) when (ex is SocketException or IOException or RtspException or FairplayException or TimeoutException)
 {
-    return Fail(ExitConnection, "connection_failed", ex.Message);
+    return Fail(ExitConnection, "connection_failed", Problems.Connection(ex, deviceLabel ?? GetOpt("--to") ?? "L'appareil"));
 }
 catch (HapPairingException ex)
 {
@@ -101,6 +102,7 @@ async Task<int> PairAsync()
     var device = await FindAsync(target);
     if (device is null || Devices.Ipv4(device) is not { } address)
         return Fail(ExitNotFound, "not_found", $"appareil « {target} » introuvable sur le réseau");
+    deviceLabel = device.Name;
 
     using var handle = await ReceiverPairing.BeginAsync(address, device.AirPlayPort ?? Devices.DefaultPort, CancellationToken.None);
     Emit("pin_required", ("id", device.DeviceId), ("name", device.Name));
@@ -196,6 +198,7 @@ async Task<int> MirrorAsync()
     var device = await FindAsync(target);
     if (device is null || Devices.Ipv4(device) is not { } address)
         return Fail(ExitNotFound, "not_found", $"appareil « {target} » introuvable sur le réseau");
+    deviceLabel = device.Name;
     if (!device.IsMirroringCandidate)
         return Fail(ExitError, "not_supported", $"{device.Name} n'accepte pas le partage d'écran");
     var credentials = new Credentials().Load(device.DeviceId);
