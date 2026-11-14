@@ -13,12 +13,14 @@ sans réglage.
 
 ## Deux façons de s'en servir
 
-- **L'application** (`MaPasserelle.exe`) se loge dans la zone de notification, près de l'horloge.
+- **L'application** (`MaPasserelle.App.exe`) se loge dans la zone de notification, près de l'horloge.
   Un clic sur son icône ouvre un panneau : choisir le téléviseur, l'écran ou la fenêtre, puis
   « Partager ». Le jumelage se fait depuis ce même panneau, une seule fois par téléviseur.
   Un clic droit sur l'icône permet de partager, d'arrêter ou de quitter.
 - **La ligne de commande** (`mapasserelle.exe`), décrite ci-dessous, sert aux autres programmes
-  (Mon Estrade) et aux essais.
+  (Mon Estrade) et aux essais. Dans la version du Microsoft Store, la commande `mapasserelle` est un alias
+  de l'application : suivie d'une commande (`discover`, `mirror`…), elle passe la main à `mapasserelle.exe`
+  avec les mêmes entrées et sorties ; seule, elle ouvre le panneau.
 
 ## Utilisation en ligne de commande
 

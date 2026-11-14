@@ -28,7 +28,9 @@ if ($synced -ne $text) { [IO.File]::WriteAllText($manifest, $synced, (New-Object
 if ($Msix) {
     $dist = Join-Path $root 'dist\msix'
     Remove-Item $dist -Recurse -Force -ErrorAction SilentlyContinue
-    & $dotnet publish $project @common '-p:WindowsPackageType=MSIX' '-p:GenerateAppxPackageOnBuild=true' `
+    # -m:1 : Engine est compilé deux fois (pour l'application et pour la ligne de commande) ; en parallèle,
+    # les deux écrivent le même fichier et la compilation échoue (« fichier utilisé par un autre processus »).
+    & $dotnet publish $project @common '-m:1' '-p:WindowsPackageType=MSIX' '-p:GenerateAppxPackageOnBuild=true' `
         '-p:AppxPackageSigningEnabled=false' "-p:AppxPackageDir=$dist/" '-p:UapAppxPackageBuildMode=StoreUpload' '-p:AppxBundle=Never'
     if ($LASTEXITCODE -ne 0) { throw 'Échec de la création du paquet MSIX' }
     # Le paquet à téléverser (les dépendances du runtime sont fournies par le Store).

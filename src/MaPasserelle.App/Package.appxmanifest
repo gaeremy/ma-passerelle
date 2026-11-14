@@ -4,9 +4,8 @@
   xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
   xmlns:uap5="http://schemas.microsoft.com/appx/manifest/uap/windows10/5"
   xmlns:desktop2="http://schemas.microsoft.com/appx/manifest/desktop/windows10/2"
-  xmlns:desktop4="http://schemas.microsoft.com/appx/manifest/desktop/windows10/4"
   xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
-  IgnorableNamespaces="uap uap5 desktop2 desktop4 rescap">
+  IgnorableNamespaces="uap uap5 desktop2 rescap">
 
   <!-- Identité PROVISOIRE : à remplacer par celle que Partner Center attribue à la réservation
        du nom « Ma Passerelle » (même compte que Mon Estrade). La version est reportée par build.ps1. -->
@@ -43,28 +42,17 @@
         <uap5:Extension Category="windows.startupTask">
           <uap5:StartupTask TaskId="MaPasserelleStartup" Enabled="false" DisplayName="Ma Passerelle" />
         </uap5:Extension>
-      </Extensions>
-    </Application>
-
-    <!-- La ligne de commande, pour Mon Estrade et les essais : « mapasserelle » dans une invite
-         de commandes, sans entrée dans le menu Démarrer. -->
-    <Application Id="Cli" Executable="mapasserelle.exe" EntryPoint="Windows.FullTrustApplication"
-                 desktop4:Subsystem="console" desktop4:SupportsMultipleInstances="true">
-      <uap:VisualElements
-        DisplayName="Ma Passerelle (ligne de commande)"
-        Description="Pilotage de Ma Passerelle par d'autres programmes"
-        BackgroundColor="#F8F7F2"
-        Square150x150Logo="Assets\Square150x150Logo.png"
-        Square44x44Logo="Assets\Square44x44Logo.png"
-        AppListEntry="none" />
-      <Extensions>
+        <!-- « mapasserelle discover », « mapasserelle mirror »… dans une invite de commandes ou depuis
+             Mon Estrade : l'application passe la main à la ligne de commande (Program.cs). Le Store
+             refuse une deuxième application cachée, d'où l'alias sur l'application principale. -->
         <uap5:Extension Category="windows.appExecutionAlias">
-          <uap5:AppExecutionAlias desktop4:Subsystem="console">
+          <uap5:AppExecutionAlias>
             <uap5:ExecutionAlias Alias="mapasserelle.exe" />
           </uap5:AppExecutionAlias>
         </uap5:Extension>
       </Extensions>
     </Application>
+
   </Applications>
 
 

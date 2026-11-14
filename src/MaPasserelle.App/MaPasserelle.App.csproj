@@ -29,6 +29,8 @@
     <SelfContained>true</SelfContained>
     <SatelliteResourceLanguages>fr</SatelliteResourceLanguages>
     <Description>Partage d'écran compatible Apple TV, compagnon de Mon Estrade.</Description>
+    <!-- Main maison (Program.cs) : avec une commande, relais vers la ligne de commande. -->
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
   </PropertyGroup>
 
   <ItemGroup>
