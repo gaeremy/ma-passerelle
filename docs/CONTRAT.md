@@ -30,12 +30,12 @@ l'utilisateur renomme son téléviseur.
 
 Nom et identifiant passent par une recherche sur le réseau local (jusqu'à 8 secondes), que
 certains réseaux bloquent (Wi-Fi d'établissement, réseaux séparés). `--to` accepte donc aussi
-une **adresse IPv4**, éventuellement suivie du port (`10.0.3.104` ou `10.0.3.104:7000`) :
+une **adresse IPv4**, éventuellement suivie du port (`192.168.1.20` ou `192.168.1.20:7000`) :
 Ma Passerelle interroge alors directement l'appareil, sans recherche, et le partage démarre
 plus vite. Dans ce cas, `searching` est remplacé par :
 
 ```json
-{"event":"asking","address":"10.0.3.104","port":7000}
+{"event":"asking","address":"192.168.1.20","port":7000}
 ```
 
 Si rien ne répond dans les 5 secondes : erreur `not_found` (code 3). Le jumelage est retrouvé
@@ -50,7 +50,7 @@ par l'identifiant que renvoie l'appareil ; l'appelant peut donc mémoriser l'adr
 
 ```json
 {"event":"searching","seconds":6}
-{"event":"device","id":"E69BEC25FFA7","name":"Séjour","model":"AppleTV11,1","address":"10.0.3.104","mirroring":true,"audio":true,"paired":true}
+{"event":"device","id":"A1B2C3D4E5F6","name":"Salle 12","model":"AppleTV11,1","address":"192.168.1.20","mirroring":true,"audio":true,"paired":true}
 {"event":"done","count":1}
 ```
 
@@ -91,9 +91,9 @@ Jumelle le PC avec l'appareil. À faire une seule fois par appareil et par compt
 3. Ma Passerelle émet `paired`.
 
 ```json
-{"event":"searching","target":"Séjour"}
-{"event":"pin_required","id":"E69BEC25FFA7","name":"Séjour"}
-{"event":"paired","id":"E69BEC25FFA7","name":"Séjour"}
+{"event":"searching","target":"Salle 12"}
+{"event":"pin_required","id":"A1B2C3D4E5F6","name":"Salle 12"}
+{"event":"paired","id":"A1B2C3D4E5F6","name":"Salle 12"}
 ```
 
 ### `unpair --to <nom|id>`
@@ -134,10 +134,10 @@ Réglages :
 Événements, dans l'ordre :
 
 ```json
-{"event":"searching","target":"Séjour"}
-{"event":"connecting","id":"E69BEC25FFA7","name":"Séjour","address":"10.0.3.104"}
+{"event":"searching","target":"Salle 12"}
+{"event":"connecting","id":"A1B2C3D4E5F6","name":"Salle 12","address":"192.168.1.20"}
 {"event":"stage","message":"..."}
-{"event":"streaming","id":"E69BEC25FFA7","name":"Séjour","source":"screen","source_name":"\\\\.\\DISPLAY1","audio":true}
+{"event":"streaming","id":"A1B2C3D4E5F6","name":"Salle 12","source":"screen","source_name":"\\\\.\\DISPLAY1","audio":true}
 {"event":"video","width":1920,"height":1080,"fps":30,"mbps":6,"encoder":"H.264 hardware (NVIDIA H.264 Encoder MFT)"}
 {"event":"status","frames":298,"seconds":10,"audio":true}
 {"event":"stopped","reason":"command","frames":912,"seconds":31}
@@ -178,7 +178,7 @@ le partage s'arrête donc immédiatement ; utiliser `--no-stdin` dans ce cas.
 ## Erreurs
 
 ```json
-{"event":"error","code":"not_paired","message":"Séjour n'est pas encore jumelé : lancer d'abord « pair »"}
+{"event":"error","code":"not_paired","message":"Salle 12 n'est pas encore jumelé : lancer d'abord « pair »"}
 ```
 
 `message` est une phrase en français, affichable telle quelle. `code` est stable.

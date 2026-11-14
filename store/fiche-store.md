@@ -52,8 +52,8 @@ Apple TV est une marque d'Apple Inc. Ma Passerelle est un logiciel indépendant,
 - Logiciel libre (GPL-3.0), sans compte, sans publicité
 
 ## Politique de confidentialité
-À publier, par exemple : https://gaeremy.github.io/mon-estrade-site/ma-passerelle-confidentialite.html
-(texte prêt dans store/confidentialite.md)
+https://github.com/gaeremy/ma-passerelle/blob/main/store/confidentialite.md
+(valable dès que le dépôt est public)
 
 ## Mots-clés (7 max.)
 partage d'écran, recopie d'écran, projection sans fil, Apple TV, projecteur, classe, présentation
@@ -62,8 +62,9 @@ partage d'écran, recopie d'écran, projection sans fil, Apple TV, projecteur, c
 Productivité (sinon Utilitaires et outils). Éducation possible en deuxième catégorie.
 
 ## Licence et code source
-Licence GPL-3.0-or-later : indiquer dans les « Conditions de licence supplémentaires » le lien vers le dépôt public
-(GitHub, à créer) et le texte de la GPL. Le Store accepte la GPL à condition de fournir le code source.
+Licence GPL-3.0-or-later. « Conditions de licence supplémentaires » :
+Ma Passerelle est un logiciel libre distribué sous licence GNU GPL version 3 ou ultérieure. Code source et texte
+complet de la licence : https://github.com/gaeremy/ma-passerelle
 
 ## Notes pour la certification (champ « Notes pour la certification »)
 L'application partage l'écran vers un appareil compatible Apple TV du réseau local. Sans appareil de ce type,

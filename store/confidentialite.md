@@ -28,4 +28,4 @@ La commande `mapasserelle unpair --to <appareil>` supprime la clé de jumelage d
 Mon Estrade peut lancer Ma Passerelle pour démarrer ou arrêter un partage. Les deux programmes échangent uniquement les commandes et l'état du partage, sur votre PC. Aucune donnée d'élève n'est transmise à Ma Passerelle.
 
 ## Contact
-Questions ou signalements : https://github.com/gaeremy/mon-estrade-site/issues
+Questions ou signalements : https://github.com/gaeremy/ma-passerelle/issues

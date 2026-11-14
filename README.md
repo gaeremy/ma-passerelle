@@ -2,62 +2,101 @@
 
 <img src="assets/icon/ma-passerelle-128.png" alt="Icône de Ma Passerelle" width="96" align="right">
 
-Partage l'écran d'un PC Windows sur un téléviseur **compatible Apple TV**, image et son.
-Compagnon de Mon Estrade, utilisable aussi tout seul.
+Partagez l'écran de votre PC Windows, ou une seule fenêtre, sur un téléviseur ou un projecteur
+**compatible Apple TV**, image et son, sans câble.
 
-Ma Passerelle est un programme en ligne de commande. Il trouve les téléviseurs du réseau,
-se jumelle une fois avec un code affiché à l'écran, puis envoie un écran ou une fenêtre,
-pointeur de la souris compris.
-L'encodage vidéo utilise la carte graphique quand elle le permet (Intel, NVIDIA ou AMD),
-sans réglage.
+Pensée pour la classe et les réunions : vous restez à votre bureau, la salle voit le grand écran.
+Compagnon de [Mon Estrade](https://apps.microsoft.com/detail/9NM7R8V8Q0H9), la boîte à outils de
+l'enseignant, et utilisable tout seul. Logiciel libre, sans compte, sans publicité, sans pistage.
 
-## Deux façons de s'en servir
+<p align="center">
+  <img src="store/captures/1-panneau.png" alt="Le panneau de Ma Passerelle près de l'horloge" width="720">
+</p>
 
-- **L'application** (`MaPasserelle.App.exe`) se loge dans la zone de notification, près de l'horloge.
-  Un clic sur son icône ouvre un panneau : choisir le téléviseur, l'écran ou la fenêtre, puis
-  « Partager ». Le jumelage se fait depuis ce même panneau, une seule fois par téléviseur.
+## Installer
+
+- **Microsoft Store** (recommandé, mises à jour automatiques) :
+  [Ma Passerelle](https://apps.microsoft.com/detail/9PJB8758J79C)
+- **Version autonome** : télécharger le zip de la dernière version dans
+  [Releases](https://github.com/gaeremy/ma-passerelle/releases), le décompresser, puis lancer
+  `MaPasserelle.App.exe`. Rien à installer : .NET et Windows App SDK sont inclus.
+  Windows peut afficher un avertissement SmartScreen, car l'exécutable n'est pas signé.
+
+Il faut Windows 10 (version 2004 ou plus récente) ou Windows 11, et un appareil compatible Apple TV
+sur le même réseau.
+
+## Ce que fait Ma Passerelle
+
+- **Un clic près de l'horloge** : choisir l'appareil, l'écran ou la fenêtre, puis « Partager ».
   Un clic droit sur l'icône permet de partager, d'arrêter ou de quitter.
-- **La ligne de commande** (`mapasserelle.exe`), décrite ci-dessous, sert aux autres programmes
-  (Mon Estrade) et aux essais. Dans la version du Microsoft Store, la commande `mapasserelle` est un alias
-  de l'application : suivie d'une commande (`discover`, `mirror`…), elle passe la main à `mapasserelle.exe`
-  avec les mêmes entrées et sorties ; seule, elle ouvre le panneau.
+- **Un écran entier ou une seule fenêtre** : vos courriels et vos notes restent privés.
+  Le partage s'arrête de lui-même si la fenêtre partagée est fermée.
+- **Image et son**, avec le pointeur de la souris. Qualité 720p, Full HD ou 4K,
+  30 ou 60 images par seconde.
+- **Encodage par la carte graphique** (Intel, NVIDIA ou AMD) quand elle le permet, sans réglage.
+- **Jumelage par code**, une seule fois par appareil. Connexion par adresse IP si l'appareil
+  n'apparaît pas dans la liste.
+- **Démarrage avec Windows** en option, discrètement dans la zone de notification.
 
-## Utilisation en ligne de commande
+| | | |
+|---|---|---|
+| ![Une seule fenêtre](store/captures/2-fenetre.png) | ![Réglages](store/captures/3-reglages.png) | ![Jumelage](store/captures/4-jumelage.png) |
+
+## La ligne de commande
+
+`mapasserelle.exe` permet de piloter Ma Passerelle depuis d'autres programmes (Mon Estrade) et sert
+aux essais. Dans la version du Store, la commande `mapasserelle` est un alias de l'application :
+suivie d'une commande, elle passe la main à la ligne de commande avec les mêmes entrées et sorties ;
+seule, elle ouvre le panneau.
 
 ```
 mapasserelle discover
-mapasserelle pair --to "Séjour"
-mapasserelle mirror --to "Séjour"
-mapasserelle mirror --to "Séjour" --window-title "Mon Estrade" --resolution 720
+mapasserelle pair --to "Salle 12"
+mapasserelle mirror --to "Salle 12"
+mapasserelle mirror --to 192.168.1.20 --window-title "Mon Estrade" --resolution 720
 ```
 
 Pendant le partage, taper `stop` puis Entrée pour arrêter, ou `status` pour voir où on en est.
 `mapasserelle help` liste toutes les options.
 
-Pour piloter Ma Passerelle depuis un autre programme, ajouter `--json` :
-chaque événement sort alors sur une ligne JSON. Le contrat complet est dans
-[docs/CONTRAT.md](docs/CONTRAT.md).
+Pour piloter Ma Passerelle depuis un autre programme, ajouter `--json` : chaque événement sort alors
+sur une ligne JSON (UTF-8). Le contrat complet est dans [docs/CONTRAT.md](docs/CONTRAT.md).
 
 ## Compiler
 
 Il faut Windows 10 ou 11 (x64 ou ARM64) et le SDK .NET 10.
 
 ```
-dotnet build src/MaPasserelle/MaPasserelle.csproj -c Release -p:Platform=x64
+build.cmd              :: version autonome dans dist\MaPasserelle
+build.cmd -Run         :: la même, puis la lance
+build.cmd -Msix        :: paquet MSIX non signé pour le Microsoft Store (dist\msix)
 dotnet test vendor/WinPlay/tests/WinPlay.Core.Tests/WinPlay.Core.Tests.csproj -c Release
 ```
-
-L'exécutable est produit dans `src/MaPasserelle/bin/x64/Release/net10.0-windows10.0.22621.0/win-x64/`. Il est autonome : .NET y est embarqué, rien à installer sur le PC qui le lance.
 
 ## Organisation du dépôt
 
 | Dossier | Contenu |
 |---|---|
-| `src/MaPasserelle` | Le programme : commandes, événements, gestion des jumelages. |
-| `src/MaPasserelle.Capture` | La capture d'écran et de fenêtre et l'encodage vidéo, dérivés de WinPlay. |
-| `vendor/WinPlay` | Le protocole, repris tel quel de [WinPlay](https://github.com/dineshdhotrad/WinPlay). Voir [UPSTREAM.md](vendor/WinPlay/UPSTREAM.md). |
+| `src/MaPasserelle.App` | L'application : icône près de l'horloge, panneau, réglages, jumelage. |
+| `src/MaPasserelle` | La ligne de commande (`mapasserelle.exe`) et ses événements JSON. |
+| `src/MaPasserelle.Engine` | Le moteur commun : recherche des appareils, jumelages, partage. |
+| `src/MaPasserelle.Capture` | Capture d'écran et de fenêtre, encodage vidéo, dérivés de WinPlay. |
+| `vendor/WinPlay` | Le protocole, repris de [WinPlay](https://github.com/dineshdhotrad/WinPlay). Voir [UPSTREAM.md](vendor/WinPlay/UPSTREAM.md). |
 | `assets/icon` | L'icône (SVG, PNG, ICO). |
 | `docs` | Le contrat de pilotage. |
+| `store` | Fiche du Microsoft Store, captures, politique de confidentialité. |
+
+## Vie privée
+
+Ma Passerelle ne se connecte pas à Internet et n'envoie rien à l'éditeur. L'image et le son vont
+seulement à l'appareil choisi, sur le réseau local, et seulement pendant le partage.
+Détails : [politique de confidentialité](store/confidentialite.md).
+
+## Signaler un problème
+
+Ouvrir une [issue](https://github.com/gaeremy/ma-passerelle/issues) en précisant la version de
+Windows, le modèle d'appareil et le message affiché. Le journal des erreurs se trouve dans
+`%APPDATA%\MaPasserelle\erreurs.log`.
 
 ## Licence
 
