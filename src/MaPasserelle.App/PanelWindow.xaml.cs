@@ -95,10 +95,7 @@ public sealed partial class PanelWindow : Window
         SourceGrid.SelectionChanged += (_, _) => UpdateDeviceState();
         CancelPairing();
 
-        (_settings.MaxHeight switch { 720 => Quality720, 2160 => Quality2160, _ => Quality1080 }).IsChecked = true;
-        (_settings.Fps >= 60 ? Fps60 : Fps30).IsChecked = true;
-        AudioSwitch.IsOn = _settings.Audio;
-        CursorSwitch.IsOn = _settings.Cursor;
+        ShowSettings();
         Startup.Refresh();
         string version = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>()
             ?.InformationalVersion.Split('+')[0] ?? "";
@@ -132,8 +129,31 @@ public sealed partial class PanelWindow : Window
 
     // ------------------------------------------------------------------ affichage du panneau
 
+    /// <summary>Relit les réglages : Mon Estrade a pu les changer (mapasserelle settings).</summary>
+    private void ReloadSettings()
+    {
+        var fresh = AppSettings.Load();
+        _settings.MaxHeight = fresh.MaxHeight;
+        _settings.Fps = fresh.Fps;
+        _settings.Audio = fresh.Audio;
+        _settings.Cursor = fresh.Cursor;
+        var wasLoading = _loading;
+        _loading = true;
+        ShowSettings();
+        _loading = wasLoading;
+    }
+
+    private void ShowSettings()
+    {
+        (_settings.MaxHeight switch { 720 => Quality720, 2160 => Quality2160, _ => Quality1080 }).IsChecked = true;
+        (_settings.Fps >= 60 ? Fps60 : Fps30).IsChecked = true;
+        AudioSwitch.IsOn = _settings.Audio;
+        CursorSwitch.IsOn = _settings.Cursor;
+    }
+
     public void ShowPanel()
     {
+        ReloadSettings();
         _hadFocus = false;
         _shownAt = Environment.TickCount64;
         PlaceNearTray();
@@ -512,6 +532,7 @@ public sealed partial class PanelWindow : Window
             return;
         }
 
+        ReloadSettings();
         var options = new MirrorOptions
         {
             Kind = source.Kind,

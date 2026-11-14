@@ -4,6 +4,7 @@ using H.NotifyIcon;
 using H.NotifyIcon.Core;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using MaPasserelle.Engine;
 
 namespace MaPasserelle.App;
 

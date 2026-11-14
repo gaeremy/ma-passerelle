@@ -2,13 +2,14 @@
 using Microsoft.Win32;
 using Windows.ApplicationModel;
 
-namespace MaPasserelle.App;
+namespace MaPasserelle.Engine;
 
 /// <summary>
 /// Démarrer avec Windows, discrètement (seulement l'icône près de l'horloge). Version paquet : la
 /// tâche de démarrage du manifeste (Gestionnaire des tâches → Démarrage). Version autonome : une
 /// valeur dans HKCU\…\Run, avec --tray. L'état vit dans Windows : on le relit à chaque affichage.
-/// Même mécanisme que Mon Estrade (Services/StartWithWindows).
+/// Même mécanisme que Mon Estrade (Services/StartWithWindows). Utilisé par l'application et par
+/// la ligne de commande (settings --startup), donc par Mon Estrade.
 /// </summary>
 public static class Startup
 {
@@ -18,6 +19,9 @@ public static class Startup
     private const string TaskId = "MaPasserelleStartup";
     private const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string RunValue = "Ma Passerelle";
+
+    /// <summary>L'application (et non la ligne de commande) : c'est elle qui démarre avec Windows.</summary>
+    private static string AppExe => Path.Combine(AppContext.BaseDirectory, "MaPasserelle.App.exe");
 
     public static bool IsPackaged
     {
@@ -41,7 +45,7 @@ public static class Startup
         if (!IsPackaged)
         {
             using var key = Registry.CurrentUser.CreateSubKey(RunKey);
-            if (on) key.SetValue(RunValue, $"\"{Environment.ProcessPath}\" {TrayArgument}");
+            if (on) key.SetValue(RunValue, $"\"{AppExe}\" {TrayArgument}");
             else key.DeleteValue(RunValue, throwOnMissingValue: false);
             return Registered() ? Status.On : Status.Off;
         }
@@ -60,7 +64,7 @@ public static class Startup
         {
             key.Dispose();
             using var writable = Registry.CurrentUser.CreateSubKey(RunKey);
-            writable.SetValue(RunValue, $"\"{Environment.ProcessPath}\" {TrayArgument}");
+            writable.SetValue(RunValue, $"\"{AppExe}\" {TrayArgument}");
         }
     }
 
@@ -68,7 +72,7 @@ public static class Startup
     {
         using var key = Registry.CurrentUser.OpenSubKey(RunKey);
         return key?.GetValue(RunValue) is string command
-            && command.StartsWith($"\"{Environment.ProcessPath}\"", StringComparison.OrdinalIgnoreCase);
+            && command.StartsWith($"\"{AppExe}\"", StringComparison.OrdinalIgnoreCase);
     }
 
     private static Status Map(StartupTaskState state) => state switch

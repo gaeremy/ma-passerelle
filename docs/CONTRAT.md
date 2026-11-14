@@ -44,9 +44,13 @@ par l'identifiant que renvoie l'appareil ; l'appelant peut donc mémoriser l'adr
 
 ## Commandes
 
-### `discover [--seconds N]`
+### `discover [--seconds N] [--address IP]`
 
 Écoute le réseau pendant `N` secondes (6 par défaut, 60 au plus), puis liste les appareils.
+
+Avec `--address IP` (IPv4, éventuellement suivie du port), Ma Passerelle interroge directement cette
+adresse au lieu d'écouter le réseau : `asking` remplace `searching`, puis un `device` si l'appareil
+répond, et `done`. Utile sur les réseaux qui bloquent la recherche ; l'appelant peut retenir l'adresse.
 
 ```json
 {"event":"searching","seconds":6}
@@ -60,6 +64,28 @@ par l'identifiant que renvoie l'appareil ; l'appelant peut donc mémoriser l'adr
 | `audio` | l'appareil accepte le son |
 | `paired` | un jumelage est déjà enregistré pour cet appareil |
 | `address` | adresse IPv4, ou `null` si elle n'est pas encore connue |
+
+### `settings [options]`
+
+Lit les réglages de l'application Ma Passerelle, ceux que `mirror` utilise sans option. Avec des
+options, les change d'abord. Le programme appelant peut ainsi proposer ces réglages sans les
+enregistrer lui-même : ils restent à un seul endroit.
+
+| Option | Valeurs |
+|---|---|
+| `--resolution` | `720`, `1080`, `2160` |
+| `--fps` | `30`, `60` |
+| `--audio` | `on`, `off` |
+| `--cursor` | `on`, `off` |
+| `--startup` | `on`, `off` : démarrer Ma Passerelle avec Windows (icône près de l'horloge) |
+
+```json
+{"event":"settings","resolution":1080,"fps":30,"audio":true,"cursor":true,"startup":"off"}
+```
+
+`startup` vaut `on`, `off`, `blocked` (désactivé par l'utilisateur dans le Gestionnaire des tâches,
+seul Windows peut le réactiver) ou `policy` (imposé par une stratégie). Dans les deux derniers cas,
+`--startup` ne change rien.
 
 ### `screens`
 

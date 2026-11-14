@@ -32,6 +32,7 @@ try
         "discover" => await DiscoverAsync(),
         "pair" => await PairAsync(),
         "unpair" => await UnpairAsync(),
+        "settings" => await SettingsAsync(),
         "screens" => Screens(),
         "windows" => Windows(),
         "mirror" => await MirrorAsync(),
@@ -57,9 +58,21 @@ catch (PairingRequiredException ex)
 
 async Task<int> DiscoverAsync()
 {
-    int seconds = int.TryParse(GetOpt("--seconds"), out int s) ? Math.Clamp(s, 1, 60) : 6;
-    Emit("searching", ("seconds", seconds));
-    var devices = await Devices.DiscoverAsync(TimeSpan.FromSeconds(seconds));
+    IReadOnlyList<AirPlayDevice> devices;
+    if (GetOpt("--address") is { } target)
+    {
+        // Une adresse précise : on interroge directement l'appareil, sans recherche (réseaux qui la bloquent).
+        if (!Devices.TryParseAddress(target, out var ip, out int port))
+            return Fail(ExitUsage, "usage", "--address attend une adresse IPv4, par exemple 192.168.1.20");
+        Emit("asking", ("address", ip.ToString()), ("port", port));
+        devices = await Devices.AskAsync(ip, port) is { } one ? [one] : [];
+    }
+    else
+    {
+        int seconds = int.TryParse(GetOpt("--seconds"), out int s) ? Math.Clamp(s, 1, 60) : 6;
+        Emit("searching", ("seconds", seconds));
+        devices = await Devices.DiscoverAsync(TimeSpan.FromSeconds(seconds));
+    }
     var store = new Credentials();
     foreach (var d in devices)
     {
@@ -75,6 +88,47 @@ async Task<int> DiscoverAsync()
     Emit("done", ("count", devices.Count));
     return ExitOk;
 }
+
+/// <summary>Lit et change les réglages de l'application (qualité, fluidité, son, pointeur, démarrage avec Windows).</summary>
+async Task<int> SettingsAsync()
+{
+    var settings = AppSettings.Load();
+    bool changed = false;
+    if (GetOpt("--resolution") is { } r)
+    {
+        settings.MaxHeight = r.ToLowerInvariant() switch { "720" or "720p" => 720, "1080" or "1080p" => 1080, "2160" or "2160p" or "4k" => 2160, _ => -1 };
+        if (settings.MaxHeight < 0) return Fail(ExitUsage, "usage", "--resolution accepte 720, 1080 ou 2160");
+        changed = true;
+    }
+    if (GetOpt("--fps") is { } f)
+    {
+        if (f is not ("30" or "60")) return Fail(ExitUsage, "usage", "--fps accepte 30 ou 60");
+        settings.Fps = int.Parse(f);
+        changed = true;
+    }
+    if (OnOff("--audio") is { } audio) { settings.Audio = audio; changed = true; }
+    if (OnOff("--cursor") is { } cursor) { settings.Cursor = cursor; changed = true; }
+    if (changed) settings.Save();
+
+    var startup = OnOff("--startup") is { } on ? await Startup.SetAsync(on) : await Startup.GetAsync();
+    Emit("settings", ("resolution", settings.MaxHeight), ("fps", settings.Fps), ("audio", settings.Audio), ("cursor", settings.Cursor),
+        ("startup", startup switch
+        {
+            Startup.Status.On => "on",
+            Startup.Status.BlockedByUser => "blocked",
+            Startup.Status.ByPolicy => "policy",
+            _ => "off",
+        }));
+    return ExitOk;
+}
+
+/// <summary>Valeur on/off d'une option de settings, ou null si absente.</summary>
+bool? OnOff(string name) => GetOpt(name)?.ToLowerInvariant() switch
+{
+    "on" or "oui" or "true" or "1" => true,
+    "off" or "non" or "false" or "0" => false,
+    _ => null,
+};
 
 int Screens()
 {
@@ -290,6 +344,10 @@ int Help()
           mapasserelle pair --to <nom|id|IP> [--pin NNNN]
                                                         jumelle (le code s'affiche sur le téléviseur)
           mapasserelle unpair --to <nom|id|IP>          oublie un jumelage
+          mapasserelle discover --address IP            interroge un appareil précis, sans recherche
+          mapasserelle settings [--resolution 720|1080|2160] [--fps 30|60]
+                                [--audio on|off] [--cursor on|off] [--startup on|off]
+                                                        lit ou change les réglages de l'application
           mapasserelle screens                          liste les écrans
           mapasserelle windows                          liste les fenêtres
           mapasserelle mirror --to <nom|id|IP> [options]

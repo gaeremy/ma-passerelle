@@ -12,13 +12,12 @@ namespace MaPasserelle.App;
 /// </summary>
 public static class Program
 {
-    private static readonly string[] CliCommands =
-        ["discover", "pair", "unpair", "screens", "windows", "mirror", "version", "help", "--help", "-h"];
-
     [STAThread]
     private static int Main(string[] args)
     {
-        if (args.Length > 0 && CliCommands.Contains(args[0], StringComparer.OrdinalIgnoreCase))
+        // Tout argument sauf --tray (démarrage avec Windows, version autonome) est une commande de la ligne de
+        // commande : discover, mirror, settings… y compris celles qu'une version future ajoutera.
+        if (args.Length > 0 && !string.Equals(args[0], Engine.Startup.TrayArgument, StringComparison.OrdinalIgnoreCase))
             return CliRelay.Run(args);
 
         WinRT.ComWrappersSupport.InitializeComWrappers();
